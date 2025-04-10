@@ -30,16 +30,19 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import PolicyDataUploader from "./components/policy-data-uploader"
 import { Badge } from "@/components/ui/badge"
+import { useRouter } from 'next/navigation'
 
 export default function FinancialSimulatorWrapper() {
+  const router = useRouter()
+
   return (
     <PolicyProvider>
-      <FinancialSimulator />
+      <FinancialSimulator router={router} />
     </PolicyProvider>
   )
 }
 
-function FinancialSimulator() {
+function FinancialSimulator({ router }: { router: any }) {
   const {
     useAlternativeData,
     togglePolicyData,
@@ -753,7 +756,7 @@ function FinancialSimulator() {
                 onClick={() => {
                   localStorage.removeItem("isAuthenticated")
                   localStorage.removeItem("username")
-                  window.location.href = "/login"
+                  router.push("/login")
                 }}
               >
                 <LogOut className="h-4 w-4 mr-2" />
