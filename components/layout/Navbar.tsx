@@ -101,6 +101,13 @@ export default function Navbar() {
                     >
                       Your Profile
                     </Link>
+                    <Link
+                      href="/subscribe"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Subscription
+                    </Link>
                     <button
                       onClick={handleSignOut}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
