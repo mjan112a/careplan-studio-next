@@ -28,10 +28,10 @@ export default function Home() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <Link href="/login" passHref>
+            <Link href="/auth/signin" passHref>
               <Button variant="outline">Log In</Button>
             </Link>
-            <Link href="/login" passHref>
+            <Link href="/auth/signin" passHref>
               <Button>Try For Free</Button>
             </Link>
           </div>
@@ -48,7 +48,7 @@ export default function Home() {
                 Upload any LTC policy, simulate outcomes, and show clients exactly how insurance protects their future.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/login" passHref>
+                <Link href="/auth/signin" passHref>
                   <Button size="lg" className="px-8">
                     Launch Simulator
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -179,7 +179,7 @@ export default function Home() {
                 className="w-full h-auto rounded-md mb-6"
               />
               <div className="flex justify-center">
-                <Link href="/login" passHref>
+                <Link href="/auth/signin" passHref>
                   <Button size="lg" className="px-8">
                     Launch Simulator Now
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -334,7 +334,7 @@ export default function Home() {
                   <span>Email support</span>
                 </li>
               </ul>
-              <Link href="/login" passHref className="block">
+              <Link href="/auth/signin" passHref className="block">
                 <Button className="w-full">Start Free Trial</Button>
               </Link>
             </div>
@@ -372,7 +372,7 @@ export default function Home() {
                   <span>Priority support</span>
                 </li>
               </ul>
-              <Link href="/login" passHref className="block">
+              <Link href="/auth/signin" passHref className="block">
                 <Button className="w-full bg-white text-blue-600 hover:bg-blue-50">Start Free Trial</Button>
               </Link>
             </div>
@@ -411,7 +411,7 @@ export default function Home() {
                   <span>Dedicated account manager</span>
                 </li>
               </ul>
-              <Link href="/login" passHref className="block">
+              <Link href="/auth/signin" passHref className="block">
                 <Button className="w-full">Contact Sales</Button>
               </Link>
             </div>
@@ -498,7 +498,7 @@ export default function Home() {
             Join hundreds of advisors who are closing more cases with CarePlan Studio.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/login" passHref>
+            <Link href="/auth/signin" passHref>
               <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50">
                 Launch Simulator Now
               </Button>

@@ -3,20 +3,23 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ArrowRight, CheckCircle, BarChart2, Upload, PieChart, Users, Play } from "lucide-react"
 
-export default function Home() {
+export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/dashboard');
-      } else {
-        router.push('/auth/signin');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          router.push('/dashboard');
+        } else {
+          router.push('/home');
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        // If there's an error, redirect to home page as a fallback
+        router.push('/home');
       }
     };
     
