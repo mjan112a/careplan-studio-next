@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabase';
@@ -7,7 +7,8 @@ interface AuthFormProps {
   mode: 'signin' | 'signup' | 'reset';
 }
 
-export default function AuthForm({ mode }: AuthFormProps) {
+// Create a separate component that uses useSearchParams
+function AuthFormWithParams({ mode }: AuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -220,5 +221,14 @@ export default function AuthForm({ mode }: AuthFormProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component that wraps the inner component with Suspense
+export default function AuthForm(props: AuthFormProps) {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <AuthFormWithParams {...props} />
+    </Suspense>
   );
 } 
