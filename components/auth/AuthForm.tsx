@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabase';
 
@@ -15,6 +15,22 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectedFrom = searchParams.get('redirectedFrom');
+
+  // Listen for auth state changes to handle redirects after signup
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && redirectedFrom) {
+        // Redirect to the specified page after successful signup/signin
+        router.push(redirectedFrom);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router, redirectedFrom]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +57,12 @@ export default function AuthForm({ mode }: AuthFormProps) {
           password,
         });
         if (error) throw error;
-        router.push('/dashboard');
+        // If there's a redirect URL, use it, otherwise go to dashboard
+        if (redirectedFrom) {
+          router.push(redirectedFrom);
+        } else {
+          router.push('/dashboard');
+        }
         router.refresh();
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {

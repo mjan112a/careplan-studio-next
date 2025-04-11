@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import Layout from '@/components/layout/Layout';
 import StripePricingTableWrapper from '../components/StripePricingTableWrapper';
@@ -19,6 +19,7 @@ interface Plan {
 
 export default function SubscribePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
 
   // Check for test keys
@@ -28,6 +29,14 @@ export default function SubscribePage() {
       console.warn('⚠️ Using Stripe test keys - This is a test environment');
     }
   }, []);
+
+  // Handle redirect after authentication
+  useEffect(() => {
+    const redirectedFrom = searchParams.get('redirectedFrom');
+    if (redirectedFrom === '/subscribe') {
+      toast.success('Welcome back! You can now view our subscription plans.');
+    }
+  }, [searchParams]);
 
   if (isLoading) {
     return (
