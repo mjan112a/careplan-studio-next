@@ -1,0 +1,3 @@
+stripe login --api-key $STRIPE_SECRET_KEY
+echo done. 
+

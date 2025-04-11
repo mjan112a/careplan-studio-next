@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, CheckCircle, BarChart2, Upload, PieChart, Users, Play } from "lucide-react"
+import StripePricingTableWrapper from "../components/StripePricingTableWrapper"
 
 export default function Home() {
   return (
@@ -301,120 +302,15 @@ export default function Home() {
 
       {/* Pricing Section */}
       <section id="pricing" className="py-20">
-        <div className="container mx-auto px-4">
+       <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">Simple, Transparent Pricing</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">Choose the plan that fits your practice</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200">
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-bold mb-2">Starter</h3>
-                <p className="text-gray-600 mb-4">For individual advisors</p>
-                <div className="text-4xl font-bold">
-                  $99<span className="text-lg text-gray-500">/month</span>
-                </div>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>5 illustrations per month</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>Basic simulation tools</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>PDF report generation</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>Email support</span>
-                </li>
-              </ul>
-              <Link href="/auth/signin" passHref className="block">
-                <Button className="w-full">Start Free Trial</Button>
-              </Link>
-            </div>
-
-            <div className="bg-blue-600 p-8 rounded-lg shadow-xl text-white transform scale-105">
-              <div className="text-center mb-6">
-                <div className="bg-blue-500 text-white text-sm font-bold py-1 px-3 rounded-full inline-block mb-4">
-                  MOST POPULAR
-                </div>
-                <h3 className="text-xl font-bold mb-2">Pro</h3>
-                <p className="text-blue-100 mb-4">For serious advisors</p>
-                <div className="text-4xl font-bold">
-                  $249<span className="text-lg text-blue-200">/month</span>
-                </div>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-blue-300 mr-2" />
-                  <span>Unlimited illustrations</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-blue-300 mr-2" />
-                  <span>Advanced simulation tools</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-blue-300 mr-2" />
-                  <span>White-labeled client reports</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-blue-300 mr-2" />
-                  <span>Policy comparison tools</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-blue-300 mr-2" />
-                  <span>Priority support</span>
-                </li>
-              </ul>
-              <Link href="/auth/signin" passHref className="block">
-                <Button className="w-full bg-white text-blue-600 hover:bg-blue-50">Start Free Trial</Button>
-              </Link>
-            </div>
-
-            <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200">
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-bold mb-2">Team</h3>
-                <p className="text-gray-600 mb-4">For advisor teams & RIAs</p>
-                <div className="text-4xl font-bold">
-                  $799<span className="text-lg text-gray-500">/month</span>
-                </div>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>5 user accounts</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>Unlimited illustrations</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>Shared client library</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>Admin dashboard</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>CRM integration</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>Dedicated account manager</span>
-                </li>
-              </ul>
-              <Link href="/auth/signin" passHref className="block">
-                <Button className="w-full">Contact Sales</Button>
-              </Link>
-            </div>
+          {/* Stripe Pricing Table */}
+          <div className="max-w-5xl mx-auto">
+            <StripePricingTableWrapper />
           </div>
 
           <div className="text-center mt-12">
