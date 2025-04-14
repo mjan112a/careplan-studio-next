@@ -1,8 +1,19 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { logger } from '@/lib/logger';
 
 export async function middleware(req: NextRequest) {
+  // Skip authentication for webhook endpoints
+  if (req.nextUrl.pathname.startsWith('/api/webhooks/stripe')) {
+    logger.debug('Middleware: Webhook request received', {
+      method: req.method,
+      url: req.url,
+      headers: Object.fromEntries(req.headers.entries()),
+    });
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 

@@ -15,6 +15,13 @@ export const getStripeSession = async (params: {
   successUrl: string;
   cancelUrl: string;
 }) => {
+  console.log('Creating Stripe checkout session with params:', {
+    priceId: params.priceId,
+    userId: params.userId,
+    successUrl: params.successUrl,
+    cancelUrl: params.cancelUrl
+  });
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     payment_method_types: ['card'],
@@ -27,6 +34,13 @@ export const getStripeSession = async (params: {
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
     client_reference_id: params.userId,
+  });
+
+  console.log('Stripe checkout session created:', {
+    sessionId: session.id,
+    clientReferenceId: session.client_reference_id,
+    customerId: session.customer,
+    subscriptionId: session.subscription
   });
 
   return session;

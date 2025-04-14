@@ -5,15 +5,30 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
 export default function SubscribeSuccessPage() {
   const [plan, setPlan] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     // In a real implementation, you would verify the session with your backend
     // and fetch the actual subscription plan details
     setPlan('Premium'); // Placeholder
-  }, []);
+
+    // Show success message
+    toast.success('Subscription successful! Redirecting to your profile...');
+
+    // Set a timeout to redirect to the profile page
+    const redirectTimer = setTimeout(() => {
+      setIsRedirecting(true);
+      router.push('/profile');
+    }, 3000); // Redirect after 3 seconds
+
+    return () => clearTimeout(redirectTimer);
+  }, [router]);
 
   return (
     <Layout>
@@ -49,10 +64,21 @@ export default function SubscribeSuccessPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl px-4">
-                <Link href="/dashboard">Go to Dashboard</Link>
+              <Button 
+                asChild 
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl px-4"
+                disabled={isRedirecting}
+              >
+                <Link href="/profile">
+                  {isRedirecting ? 'Redirecting...' : 'Go to Profile'}
+                </Link>
               </Button>
-              <Button asChild variant="outline" className="border-2 hover:bg-blue-50">
+              <Button 
+                asChild 
+                variant="outline" 
+                className="border-2 hover:bg-blue-50"
+                disabled={isRedirecting}
+              >
                 <Link href="/home">Go to Home</Link>
               </Button>
             </div>

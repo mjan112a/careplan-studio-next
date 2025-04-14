@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
+import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function POST(req: Request) {
   try {
@@ -54,22 +62,42 @@ export async function POST(req: Request) {
       cancelUrl,
     });
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+    // Get the user ID from the session
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    const userId = authSession?.user?.id;
+    
+    logger.debug('User session:', {
+      userId: userId || 'Not authenticated',
+      isAuthenticated: !!userId
+    });
+
+    // Create the checkout session
+    const sessionParams = {
+      payment_method_types: ['card' as const],
       line_items: [
         {
           price: priceId,
           quantity: 1,
         },
       ],
-      mode: 'subscription',
+      mode: 'subscription' as const,
       success_url: successUrl,
       cancel_url: cancelUrl,
+      client_reference_id: userId || undefined,
+    };
+    
+    logger.debug('Creating Stripe checkout session with params:', sessionParams);
+    
+    const checkoutSession = await stripe.checkout.sessions.create(sessionParams);
+
+    logger.debug('Created Stripe checkout session', { 
+      sessionId: checkoutSession.id,
+      clientReferenceId: checkoutSession.client_reference_id,
+      customerId: checkoutSession.customer,
+      subscriptionId: checkoutSession.subscription
     });
 
-    logger.debug('Created Stripe checkout session', { sessionId: session.id });
-
-    return NextResponse.json({ sessionId: session.id });
+    return NextResponse.json({ sessionId: checkoutSession.id });
   } catch (error) {
     logger.error('Error creating subscription', { error });
     return NextResponse.json(

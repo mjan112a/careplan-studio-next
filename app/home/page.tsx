@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, CheckCircle, BarChart2, Upload, PieChart, Users, Play } from "lucide-react"
-import StripePricingTableWrapper from "../components/StripePricingTableWrapper"
+import PricingSection from "../components/PricingSection"
 
 export default function Home() {
   return (
@@ -301,28 +301,7 @@ export default function Home() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20">
-       <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">Choose the plan that fits your practice</p>
-          </div>
-
-          {/* Stripe Pricing Table */}
-          <div className="max-w-5xl mx-auto">
-            <StripePricingTableWrapper />
-          </div>
-
-          <div className="text-center mt-12">
-            <p className="text-gray-600">
-              Need a custom enterprise solution?{" "}
-              <Link href="/contact" className="text-blue-600 font-medium">
-                Contact our sales team
-              </Link>
-            </p>
-          </div>
-        </div>
-      </section>
+      <PricingSection />
 
       {/* Testimonials Section */}
       <section className="py-20 bg-gray-50">

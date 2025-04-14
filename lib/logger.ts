@@ -10,7 +10,23 @@ export class Logger {
   private logLevel: LogLevel;
 
   private constructor() {
-    this.logLevel = LogLevel.INFO;
+    // Get log level from environment variable
+    const envLogLevel = process.env.NEXT_PUBLIC_LOG_LEVEL?.toUpperCase();
+    
+    // Set default log level based on environment
+    if (envLogLevel === 'DEBUG') {
+      this.logLevel = LogLevel.DEBUG;
+    } else if (envLogLevel === 'INFO') {
+      this.logLevel = LogLevel.INFO;
+    } else if (envLogLevel === 'WARN') {
+      this.logLevel = LogLevel.WARN;
+    } else if (envLogLevel === 'ERROR') {
+      this.logLevel = LogLevel.ERROR;
+    } else {
+      // Default to INFO if not specified or invalid
+      this.logLevel = LogLevel.INFO;
+      console.log(`Log level not specified or invalid (${envLogLevel}), defaulting to INFO`);
+    }
   }
 
   static getInstance(): Logger {

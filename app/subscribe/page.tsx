@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import Layout from '@/components/layout/Layout';
-import StripePricingTableWrapper from '../components/StripePricingTableWrapper';
+import StripePricingTableWrapperIsolated from '../components/StripePricingTableWrapperIsolated';
 
 interface Plan {
   id: string;
@@ -66,7 +66,7 @@ function SubscribePageContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
-          <StripePricingTableWrapper />
+          <StripePricingTableWrapperIsolated />
         </CardContent>
       </Card>
     </div>
