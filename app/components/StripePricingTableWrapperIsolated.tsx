@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
@@ -38,11 +38,22 @@ export default function StripePricingTableWrapperIsolated({
   const [localUserId, setLocalUserId] = useState<string | null>(userId);
   const [localUserEmail, setLocalUserEmail] = useState<string | null>(userEmail);
   const [authChecked, setAuthChecked] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const initAttempted = useRef(false);
+
+  // Set mounted state after initial render
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
     
     const checkAuth = async () => {
+      // Skip if we've already attempted initialization
+      if (initAttempted.current) return;
+      
       try {
         // Reset loading state when starting a new check
         if (isMounted) {
@@ -80,16 +91,29 @@ export default function StripePricingTableWrapperIsolated({
           setIsLoading(false);
           setAuthChecked(true);
         }
+      } finally {
+        // Mark initialization as attempted
+        initAttempted.current = true;
       }
     };
 
-    checkAuth();
+    // Only run the check if we're mounted
+    if (mounted) {
+      checkAuth();
+    }
     
     // Cleanup function to prevent state updates after unmount
     return () => {
       isMounted = false;
     };
-  }, [userId, userEmail, authChecked]);
+  }, [userId, userEmail, authChecked, mounted]);
+
+  // Reset initialization when component is remounted
+  useEffect(() => {
+    return () => {
+      initAttempted.current = false;
+    };
+  }, []);
 
   const handleSignUp = () => {
     router.push('/auth/signup?redirectedFrom=/subscribe');
@@ -107,42 +131,40 @@ export default function StripePricingTableWrapperIsolated({
   }
 
   return (
-    <div className="relative">
-      <Suspense fallback={
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nt-blue mx-auto"></div>
-            <p className="mt-4 text-nt-gray">Loading subscription plans...</p>
-          </div>
-        </div>
-      }>
-        <StripePricingTableIsolated 
-          userId={localUserId} 
-          userEmail={localUserEmail} 
-        />
-      </Suspense>
-      
-      {!isAuthenticated && (
-        <>
-          {/* Invisible overlay to prevent interaction with the pricing table */}
-          <div className="absolute inset-0 bg-transparent z-10" onClick={handleSignUp}></div>
-          
-          {/* Sign up prompt */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
-            <div className="bg-white/90 p-6 rounded-lg shadow-lg text-center max-w-md pointer-events-auto">
-              <h3 className="text-xl font-bold mb-2">Sign up to view subscription plans</h3>
-              <p className="text-gray-600 mb-4">
-                Create an account to see our subscription options and save your preferences.
-              </p>
-              <Button 
-                onClick={handleSignUp}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Sign Up Now
-              </Button>
+    <div className="space-y-8">
+      <div className="relative">
+        <Suspense fallback={
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nt-blue mx-auto"></div>
+              <p className="mt-4 text-nt-gray">Loading subscription plans...</p>
             </div>
           </div>
-        </>
+        }>
+          <StripePricingTableIsolated 
+            userId={localUserId} 
+            userEmail={localUserEmail} 
+          />
+        </Suspense>
+        
+        {!isAuthenticated && (
+          <div className="absolute inset-0 bg-transparent z-10" onClick={handleSignUp}></div>
+        )}
+      </div>
+      
+      {!isAuthenticated && (
+        <div className="bg-white/90 p-6 rounded-lg shadow-lg text-center max-w-md mx-auto">
+          <h3 className="text-xl font-bold mb-2">Sign up to Subscribe</h3>
+          <p className="text-gray-600 mb-4">
+            Create an Account to start your subscription
+          </p>
+          <Button 
+            onClick={handleSignUp}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Sign Up Now
+          </Button>
+        </div>
       )}
     </div>
   );
