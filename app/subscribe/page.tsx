@@ -22,6 +22,12 @@ function SubscribePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted state after initial render
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Check for test keys
   useEffect(() => {
@@ -38,6 +44,11 @@ function SubscribePageContent() {
       toast.success('Welcome back! You can now view our subscription plans.');
     }
   }, [searchParams]);
+
+  // If not mounted yet, show nothing to prevent hydration issues
+  if (!mounted) {
+    return null;
+  }
 
   if (isLoading) {
     return (

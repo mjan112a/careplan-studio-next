@@ -37,37 +37,59 @@ export default function StripePricingTableWrapperIsolated({
   const [isLoading, setIsLoading] = useState(true);
   const [localUserId, setLocalUserId] = useState<string | null>(userId);
   const [localUserEmail, setLocalUserEmail] = useState<string | null>(userEmail);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+    
     const checkAuth = async () => {
       try {
+        // Reset loading state when starting a new check
+        if (isMounted) {
+          setIsLoading(true);
+        }
+        
         // If userId and userEmail are provided as props, use them
         if (userId && userEmail) {
-          setLocalUserId(userId);
-          setLocalUserEmail(userEmail);
-          setIsAuthenticated(true);
-          setIsLoading(false);
+          if (isMounted) {
+            setLocalUserId(userId);
+            setLocalUserEmail(userEmail);
+            setIsAuthenticated(true);
+            setIsLoading(false);
+            setAuthChecked(true);
+          }
           return;
         }
         
         // Otherwise, fetch from Supabase
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setLocalUserId(session.user.id);
-          setLocalUserEmail(session.user.email || null);
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
+        if (isMounted) {
+          if (session?.user) {
+            setLocalUserId(session.user.id);
+            setLocalUserEmail(session.user.email || null);
+            setIsAuthenticated(true);
+          } else {
+            setIsAuthenticated(false);
+          }
+          setIsLoading(false);
+          setAuthChecked(true);
         }
       } catch (error) {
         logger.error('Error checking authentication', { error });
-      } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          setAuthChecked(true);
+        }
       }
     };
 
     checkAuth();
-  }, [userId, userEmail]);
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, userEmail, authChecked]);
 
   const handleSignUp = () => {
     router.push('/auth/signup?redirectedFrom=/subscribe');
@@ -101,23 +123,26 @@ export default function StripePricingTableWrapperIsolated({
       </Suspense>
       
       {!isAuthenticated && (
-        <div 
-          className="absolute inset-0 bg-white/20 flex flex-col items-center z-10 cursor-pointer" 
-          onClick={handleSignUp}
-        >
-          <div className="w-full flex justify-center -mt-12">
-            <Button 
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent double triggering
-                handleSignUp();
-              }} 
-              size="lg" 
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Sign Up to Subscribe
-            </Button>
+        <>
+          {/* Invisible overlay to prevent interaction with the pricing table */}
+          <div className="absolute inset-0 bg-transparent z-10" onClick={handleSignUp}></div>
+          
+          {/* Sign up prompt */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
+            <div className="bg-white/90 p-6 rounded-lg shadow-lg text-center max-w-md pointer-events-auto">
+              <h3 className="text-xl font-bold mb-2">Sign up to view subscription plans</h3>
+              <p className="text-gray-600 mb-4">
+                Create an account to see our subscription options and save your preferences.
+              </p>
+              <Button 
+                onClick={handleSignUp}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Sign Up Now
+              </Button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
