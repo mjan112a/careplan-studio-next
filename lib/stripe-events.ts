@@ -1,6 +1,7 @@
 import { stripe } from './stripe';
 import { logger } from './logger';
 import Stripe from 'stripe';
+import { getBaseUrl } from '@/utils/url';
 
 // Define the event types we want to subscribe to
 export const STRIPE_EVENT_TYPES: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = [
@@ -23,10 +24,10 @@ export const STRIPE_EVENT_TYPES: Stripe.WebhookEndpointCreateParams.EnabledEvent
  * @returns Promise<void>
  */
 export async function registerWebhookEndpoint(): Promise<void> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getBaseUrl();
   
   // Skip registration if we're in localhost
-  if (!appUrl || appUrl.includes('localhost')) {
+  if (baseUrl.includes('localhost')) {
     logger.warn('Skipping Stripe webhook registration in localhost environment');
     return;
   }
@@ -37,7 +38,7 @@ export async function registerWebhookEndpoint(): Promise<void> {
     
     // Check if we already have a webhook endpoint for this URL
     const existingWebhook = webhooks.data.find(
-      webhook => webhook.url === `${appUrl}/api/webhooks/stripe`
+      webhook => webhook.url === `${baseUrl}/api/webhooks/stripe`
     );
 
     if (existingWebhook) {
@@ -50,7 +51,7 @@ export async function registerWebhookEndpoint(): Promise<void> {
 
     // Create new webhook endpoint
     const webhook = await stripe.webhookEndpoints.create({
-      url: `${appUrl}/api/webhooks/stripe`,
+      url: `${baseUrl}/api/webhooks/stripe`,
       enabled_events: STRIPE_EVENT_TYPES,
       description: 'CarePlan Studio webhook endpoint'
     });

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Script from 'next/script';
 import './StripePricingTable.css';
 import { logger } from '@/lib/logger';
+import { getBaseUrl } from '@/utils/url';
 
 // Declare the custom element for TypeScript
 declare global {
@@ -35,8 +36,11 @@ export default function StripePricingTableIsolated({
   // Get the publishable key from environment variables
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_51R8lEzJtL7Msij8lJvt2O1lT9vjEKpLOOiGu7jjLIZKRDrZyZQXhbbIw2Y1JDS72r9ceSy5TpmVvU1w8zSrZpFFz00iZQa6M7D';
 
+  // Get the base URL using the utility function
+  const baseUrl = getBaseUrl();
+  
   // Construct the success URL with the session ID parameter
-  const successUrl = `${window.location.origin}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`;
+  const successUrl = `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`;
 
   // Use type assertion to bypass TypeScript checking for custom elements
   const StripeTable = 'stripe-pricing-table' as any;

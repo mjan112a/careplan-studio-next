@@ -3,6 +3,8 @@ import { stripe } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { getBaseUrl } from '@/utils/url';
+import { headers } from 'next/headers';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -28,31 +30,10 @@ export async function POST(req: Request) {
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     });
 
-    // Get the base URL, with fallback to VERCEL_URL
-    let baseUrl: string;
-    try {
-      logger.debug('Attempting to get URL from request...');
-      const requestUrl = new URL(req.url);
-      logger.debug('Request URL details:', {
-        protocol: requestUrl.protocol,
-        host: requestUrl.host,
-        fullUrl: requestUrl.toString(),
-      });
-      baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
-      logger.debug('Successfully constructed base URL from request:', { baseUrl });
-    } catch (error) {
-      logger.error('Failed to parse request URL:', { error });
-      // Fallback to VERCEL_URL if request URL parsing fails
-      const vercelUrl = process.env.VERCEL_URL;
-      logger.debug('Attempting to use VERCEL_URL:', { vercelUrl });
-      
-      if (!vercelUrl) {
-        logger.error('VERCEL_URL is not set', { error: 'Missing environment variable' });
-        throw new Error('Could not determine base URL - VERCEL_URL is not set');
-      }
-      baseUrl = `https://${vercelUrl}`;
-      logger.debug('Using VERCEL_URL as fallback:', { baseUrl });
-    }
+    // Get the base URL using the utility function
+    const headersList = headers();
+    const baseUrl = await getBaseUrl(headersList);
+    logger.debug('Base URL determined:', { baseUrl });
 
     // Log the final URLs being used
     const successUrl = `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`;
