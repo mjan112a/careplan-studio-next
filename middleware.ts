@@ -2,8 +2,30 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { initializeServer } from '@/lib/server-init';
+
+// Initialize server on first request
+let initializationPromise: Promise<void> | null = null;
 
 export async function middleware(req: NextRequest) {
+  // Initialize server if not already done
+  if (!initializationPromise) {
+    initializationPromise = initializeServer().catch(error => {
+      logger.error('Failed to initialize server', { error });
+      // Reset the promise so we can try again on next request
+      initializationPromise = null;
+      throw error;
+    });
+  }
+
+  // Wait for initialization to complete
+  try {
+    await initializationPromise;
+  } catch (error) {
+    // Log error but continue with request
+    logger.error('Server initialization failed', { error });
+  }
+
   // Skip authentication for webhook endpoints
   if (req.nextUrl.pathname.startsWith('/api/webhooks/stripe')) {
     logger.debug('Middleware: Webhook request received', {
