@@ -24,7 +24,7 @@ export const STRIPE_EVENT_TYPES: Stripe.WebhookEndpointCreateParams.EnabledEvent
  * @returns Promise<void>
  */
 export async function registerWebhookEndpoint(): Promise<void> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = await getBaseUrl();
   
   // Skip registration if we're in localhost
   if (baseUrl.includes('localhost')) {

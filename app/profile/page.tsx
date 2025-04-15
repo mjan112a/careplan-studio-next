@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Layout from '@/components/layout/Layout';
 import { supabase } from '@/utils/supabase';
 import type { Database } from '@/types/supabase';
+import Link from 'next/link';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -169,7 +170,14 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            <Link 
+              href="/profile/invoices" 
+              className="text-blue-600 hover:text-blue-800"
+            >
+              View Invoices
+            </Link>
+            
             <button
               type="submit"
               disabled={loading}

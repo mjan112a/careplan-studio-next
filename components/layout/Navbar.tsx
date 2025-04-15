@@ -102,6 +102,13 @@ export default function Navbar() {
                       Your Profile
                     </Link>
                     <Link
+                      href="/profile/invoices"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Your Invoices
+                    </Link>
+                    <Link
                       href="/subscribe"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsMenuOpen(false)}
