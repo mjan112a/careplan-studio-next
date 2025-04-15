@@ -22,6 +22,13 @@ export interface CustomerSubscriptionStatus {
 }
 
 /**
+ * Type guard to check if a product is a Stripe.Product (not a DeletedProduct)
+ */
+function isActiveProduct(product: Stripe.Product | Stripe.DeletedProduct): product is Stripe.Product {
+  return !('deleted' in product);
+}
+
+/**
  * Checks a customer's standing with Stripe and establishes flags for their subscription status
  * @param customerId - The Stripe customer ID
  * @returns Promise<CustomerSubscriptionStatus> - The customer's subscription status
@@ -43,10 +50,11 @@ export async function checkCustomerSubscriptionStatus(
     };
 
     // Retrieve the customer's subscriptions
+    // We'll use a simpler expand parameter to avoid the 4-level limit error
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       status: 'all', // Include all subscription statuses
-      expand: ['data.default_payment_method', 'data.items.data.price.product']
+      expand: ['data.default_payment_method']
     });
 
     if (subscriptions.data.length === 0) {
@@ -78,16 +86,30 @@ export async function checkCustomerSubscriptionStatus(
       // Process each subscription item (product)
       for (const item of subscription.items.data) {
         const price = item.price;
-        if (!price || !price.product) continue;
+        if (!price) continue;
         
-        const productId = typeof price.product === 'string' 
-          ? price.product 
-          : price.product.id;
+        // Get the price ID
+        const priceId = typeof price === 'string' ? price : price.id;
         
-        // Safely get product name with type checking
+        // Fetch the price details to get the product ID
+        const priceDetails = await stripe.prices.retrieve(priceId, {
+          expand: ['product']
+        });
+        
+        // Get the product ID and name
+        let productId = 'unknown';
         let productName = 'Unknown Product';
-        if (typeof price.product !== 'string' && 'name' in price.product) {
-          productName = price.product.name || 'Unknown Product';
+        
+        if (priceDetails.product) {
+          if (typeof priceDetails.product === 'string') {
+            productId = priceDetails.product;
+          } else {
+            productId = priceDetails.product.id;
+            // Use type guard to safely access product name
+            if (isActiveProduct(priceDetails.product)) {
+              productName = priceDetails.product.name || 'Unknown Product';
+            }
+          }
         }
         
         // Update product status
