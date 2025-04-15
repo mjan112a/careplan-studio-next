@@ -6,6 +6,7 @@ import Layout from '@/components/layout/Layout';
 import { supabase } from '@/utils/supabase';
 import type { Database } from '@/types/supabase';
 import Link from 'next/link';
+import SubscriptionStatus from '@/components/SubscriptionStatus';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -108,85 +109,86 @@ export default function Profile() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={user?.email || ''}
-              disabled
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50"
-            />
+            <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={user?.email || ''}
+                  disabled
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="full_name"
+                  name="full_name"
+                  defaultValue={profile?.full_name || ''}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="company" className="block text-sm font-medium text-gray-700">
+                  Company
+                </label>
+                <input
+                  type="text"
+                  id="company"
+                  name="company"
+                  defaultValue={profile?.company || ''}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  defaultValue={profile?.phone || ''}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-between items-center">
+                <Link 
+                  href="/profile/invoices" 
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  View Invoices
+                </Link>
+                
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
 
           <div>
-            <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="full_name"
-              name="full_name"
-              defaultValue={profile?.full_name || ''}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
+            <h2 className="text-xl font-semibold mb-4">Subscription Information</h2>
+            {user?.email && <SubscriptionStatus email={user.email} />}
           </div>
-
-          <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-700">
-              Company
-            </label>
-            <input
-              type="text"
-              id="company"
-              name="company"
-              defaultValue={profile?.company || ''}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-              Phone
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              defaultValue={profile?.phone || ''}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Subscription Level
-            </label>
-            <div className="mt-1 text-sm text-gray-900">
-              {profile?.subscription_level || 'Free'}
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <Link 
-              href="/profile/invoices" 
-              className="text-blue-600 hover:text-blue-800"
-            >
-              View Invoices
-            </Link>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </Layout>
   );
