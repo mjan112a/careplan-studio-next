@@ -38,11 +38,8 @@ export default function StripePricingTableWrapperIsolated({
   const [localUserId, setLocalUserId] = useState<string | null>(userId);
   const [localUserEmail, setLocalUserEmail] = useState<string | null>(userEmail);
   const [authChecked, setAuthChecked] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-    
     let isMounted = true;
     
     const checkAuth = async () => {
@@ -52,20 +49,8 @@ export default function StripePricingTableWrapperIsolated({
           setIsLoading(true);
         }
         
-        // Reset loading state when starting a new check
-        if (isMounted) {
-          setIsLoading(true);
-        }
-        
         // If userId and userEmail are provided as props, use them
         if (userId && userEmail) {
-          if (isMounted) {
-            setLocalUserId(userId);
-            setLocalUserEmail(userEmail);
-            setIsAuthenticated(true);
-            setIsLoading(false);
-            setAuthChecked(true);
-          }
           if (isMounted) {
             setLocalUserId(userId);
             setLocalUserEmail(userEmail);
@@ -88,23 +73,9 @@ export default function StripePricingTableWrapperIsolated({
           }
           setIsLoading(false);
           setAuthChecked(true);
-        if (isMounted) {
-          if (session?.user) {
-            setLocalUserId(session.user.id);
-            setLocalUserEmail(session.user.email || null);
-            setIsAuthenticated(true);
-          } else {
-            setIsAuthenticated(false);
-          }
-          setIsLoading(false);
-          setAuthChecked(true);
         }
       } catch (error) {
         logger.error('Error checking authentication', { error });
-        if (isMounted) {
-          setIsLoading(false);
-          setAuthChecked(true);
-        }
         if (isMounted) {
           setIsLoading(false);
           setAuthChecked(true);
@@ -113,12 +84,6 @@ export default function StripePricingTableWrapperIsolated({
     };
 
     checkAuth();
-    
-    // Cleanup function to prevent state updates after unmount
-    return () => {
-      isMounted = false;
-    };
-  }, [userId, userEmail, authChecked]);
     
     // Cleanup function to prevent state updates after unmount
     return () => {
