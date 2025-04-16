@@ -11,6 +11,7 @@ import { parsePolicyData } from "../utils/ts-parser"
 import Image from "next/image"
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'react-hot-toast'
+import { supabase } from "@/utils/supabase"
 
 // Constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -86,6 +87,14 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
         const formData = new FormData();
         formData.append('file', file);
 
+        // Get the current session to access the JWT token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error('Not authenticated');
+        }
+
+        console.log('Session token:', session.access_token); // Debug log
+
         // Add retry logic with exponential backoff
         let retries = 3;
         let delay = 1000; // Start with 1 second delay
@@ -94,8 +103,16 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
           try {
             const response = await fetch('/api/process-upload', {
               method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
               body: formData,
             });
+
+            if (response.status === 401) {
+              console.error('Auth error response:', await response.text()); // Debug log
+              throw new Error('Authentication failed');
+            }
 
             if (response.status === 429) {
               // If rate limited, wait and retry

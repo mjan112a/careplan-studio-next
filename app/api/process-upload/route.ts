@@ -1,23 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
-import { supabase } from '@/utils/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 const PROCESSED_FILE_WIDTH = 1200;
 const PROCESSED_FILE_QUALITY = 80;
 
 export async function POST(request: NextRequest) {
-  // Check if user is authenticated using getUser() for better security
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
+  // Get the JWT token from the Authorization header
+  const authHeader = request.headers.get('Authorization');
+
+  if (!authHeader?.startsWith('Bearer ')) {
     return NextResponse.json(
-      { error: 'Unauthorized' },
+      { error: 'Missing or invalid authorization header' },
       { status: 401 }
     );
   }
 
+  const token = authHeader.split(' ')[1];
+  
+  // Create a Supabase client with the JWT token
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
+
   try {
+    // Set the JWT token and get user in one step
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError) {
+      console.error('Auth error:', authError); // Debug log
+      return NextResponse.json(
+        { error: 'Authentication failed', details: authError.message },
+        { status: 401 }
+      );
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'No user found' },
+        { status: 401 }
+      );
+    }
+
+    console.log('Authenticated user:', user.id); // Debug log
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const planId = formData.get('planId') as string | null;
@@ -38,6 +73,9 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Calculate hash of original file
+    const originalHash = crypto.createHash('sha256').update(buffer).digest('hex');
+
     // Process file if it's an image
     let processedBuffer;
     if (file.type.startsWith('image/')) {
@@ -53,41 +91,39 @@ export async function POST(request: NextRequest) {
       processedBuffer = buffer;
     }
 
+    // Calculate hash of processed file
+    const processedHash = crypto.createHash('sha256').update(processedBuffer).digest('hex');
+
     let currentPlanId = planId;
 
-    // If no planId provided, create a new plan
-    if (!currentPlanId) {
-      const { data: plan, error: planError } = await supabase
+    // Only create a new plan if planId is provided but invalid
+    if (currentPlanId) {
+      // Verify the plan exists and belongs to the user
+      const { data: existingPlan, error: planError } = await supabase
         .from('plans')
-        .insert({
-          title: 'DRAFT',
-          description: 'DRAFT',
-          status: 'DRAFT',
-          userId: user.id,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        })
         .select('id')
+        .eq('id', currentPlanId)
+        .eq('userId', user.id)
         .single();
 
-      if (planError) {
-        console.error('Error creating plan:', planError);
-        throw planError;
+      if (planError || !existingPlan) {
+        console.error('Error verifying plan:', planError);
+        throw new Error('Invalid plan ID or plan does not belong to user');
       }
-
-      currentPlanId = plan.id;
     }
 
     // Upload original to private storage
     const { error: originalError } = await supabase.storage
-      .from('policy-documents-private')
+      .from('policy-documents-original')
       .upload(originalFileName, buffer, {
         cacheControl: '3600',
         upsert: false,
         metadata: {
-          planId: currentPlanId,
+          planId: currentPlanId || null,
           originalName: file.name,
-          fileType: file.type
+          fileType: file.type,
+          userId: user.id,
+          fileHash: originalHash
         }
       });
 
@@ -98,14 +134,16 @@ export async function POST(request: NextRequest) {
 
     // Upload processed file to public storage
     const { error: processedError } = await supabase.storage
-      .from('policy-documents-public')
+      .from('policy-documents-processed')
       .upload(processedFileName, processedBuffer, {
         cacheControl: '3600',
         upsert: false,
         metadata: {
-          planId: currentPlanId,
+          planId: currentPlanId || null,
           originalName: file.name,
-          fileType: file.type
+          fileType: file.type,
+          userId: user.id,
+          fileHash: processedHash
         }
       });
 
@@ -116,27 +154,18 @@ export async function POST(request: NextRequest) {
 
     // Get the public URL for the processed file
     const { data: { publicUrl } } = supabase.storage
-      .from('policy-documents-public')
+      .from('policy-documents-processed')
       .getPublicUrl(processedFileName);
-
-    // Get the current count of documents for this plan
-    const { count } = await supabase
-      .from('policy_documents')
-      .select('*', { count: 'exact', head: true })
-      .eq('plan_id', currentPlanId);
 
     // Create policy_documents record
     const { error: documentError } = await supabase
       .from('policy_documents')
       .insert({
-        plan_id: currentPlanId,
+        plan_id: currentPlanId || null,
         user_id: user.id,
         file_id: fileId,
         original_path: originalFileName,
         processed_path: processedFileName,
-        is_featured: count === 0, // First document is featured by default
-        display_order: (count || 0) + 1,
-        public_url: publicUrl,
         file_type: file.type,
         original_name: file.name
       });
@@ -146,25 +175,12 @@ export async function POST(request: NextRequest) {
       throw documentError;
     }
 
-    // If this is the first document, update the plan's featuredDocumentUrl
-    if (count === 0) {
-      const { error: updateError } = await supabase
-        .from('plans')
-        .update({ featuredDocumentUrl: publicUrl })
-        .eq('id', currentPlanId);
-
-      if (updateError) {
-        console.error('Error updating plan featured document:', updateError);
-        throw updateError;
-      }
-    }
-
     return NextResponse.json({
       id: fileId,
       url: publicUrl,
       originalFileName,
       processedFileName,
-      planId: currentPlanId
+      planId: currentPlanId || null
     });
   } catch (error) {
     console.error('Error processing file:', error);
