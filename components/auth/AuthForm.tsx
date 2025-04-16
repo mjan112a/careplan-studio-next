@@ -2,6 +2,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabase';
+import { initializeAuthListener } from '@/utils/auth-state';
 
 interface AuthFormProps {
   mode: 'signin' | 'signup' | 'reset';
@@ -21,15 +22,17 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
 
   // Listen for auth state changes to handle redirects after signup
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const unsubscribe = initializeAuthListener((event, session) => {
       if (event === 'SIGNED_IN' && redirectedFrom) {
-        // Redirect to the specified page after successful signup/signin
-        router.push(redirectedFrom);
+        // Add a small delay before redirect to prevent rapid state changes
+        setTimeout(() => {
+          router.push(redirectedFrom);
+        }, 100);
       }
     });
 
     return () => {
-      subscription.unsubscribe();
+      if (unsubscribe) unsubscribe();
     };
   }, [router, redirectedFrom]);
 

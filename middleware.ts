@@ -7,6 +7,10 @@ import { initializeServer } from '@/lib/server-init';
 // Initialize server on first request
 let initializationPromise: Promise<void> | null = null;
 
+// Cache for auth checks to prevent excessive requests
+const authCheckCache = new Map<string, { session: any, timestamp: number }>();
+const AUTH_CACHE_TTL = 60000; // 1 minute cache
+
 export async function middleware(req: NextRequest) {
   // Initialize server if not already done
   if (!initializationPromise) {
@@ -26,23 +30,52 @@ export async function middleware(req: NextRequest) {
     logger.error('Server initialization failed', { error });
   }
 
-  // Skip authentication for webhook endpoints
-  if (req.nextUrl.pathname.startsWith('/api/webhooks/stripe')) {
-    logger.debug('Middleware: Webhook request received', {
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries()),
-    });
+  // Skip authentication for webhook endpoints and static assets
+  if (req.nextUrl.pathname.startsWith('/api/webhooks/stripe') || 
+      req.nextUrl.pathname.startsWith('/_next') ||
+      req.nextUrl.pathname.startsWith('/static') ||
+      req.nextUrl.pathname.startsWith('/favicon.ico') ||
+      req.nextUrl.pathname.startsWith('/public')) {
     return NextResponse.next();
   }
 
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 
-  // Refresh session if expired - required for Server Components
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // Check if we have a cached auth result for this request
+  const cacheKey = req.cookies.get('sb-access-token')?.value || 'no-token';
+  const cachedAuth = authCheckCache.get(cacheKey);
+  const now = Date.now();
+  
+  let session = null;
+  
+  // Use cached auth if available and not expired
+  if (cachedAuth && (now - cachedAuth.timestamp < AUTH_CACHE_TTL)) {
+    session = cachedAuth.session;
+  } else {
+    // Get fresh session
+    try {
+      const { data } = await supabase.auth.getSession();
+      session = data.session;
+      
+      // Update cache
+      authCheckCache.set(cacheKey, { session, timestamp: now });
+      
+      // Clean up old cache entries
+      const entriesToDelete: string[] = [];
+      authCheckCache.forEach((value, key) => {
+        if (now - value.timestamp > AUTH_CACHE_TTL) {
+          entriesToDelete.push(key);
+        }
+      });
+      
+      entriesToDelete.forEach(key => {
+        authCheckCache.delete(key);
+      });
+    } catch (error) {
+      logger.error('Error getting session in middleware:', { error: error instanceof Error ? error.message : String(error) });
+    }
+  }
 
   // If user is not signed in and the current path is not /auth/*, /home, or /, redirect to /auth/signin
   if (!session && 
@@ -74,7 +107,11 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - apple-touch-icon (iOS icons)
+     * - site.webmanifest (PWA manifest)
+     * - robots.txt
+     * - placeholder.svg (placeholder image)
      */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|apple-touch-icon|site.webmanifest|robots.txt|placeholder.svg).*)',
   ],
 }; 

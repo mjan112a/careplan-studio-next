@@ -3,18 +3,23 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthForm from '@/components/auth/AuthForm';
-import { supabase } from '@/utils/supabase';
+import { getSession } from '@/utils/auth-state';
 
 export default function SignIn() {
   const router = useRouter();
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/dashboard');
+      try {
+        const session = await getSession();
+        if (session) {
+          router.push('/dashboard');
+        }
+      } catch (error) {
+        console.error('Error checking session:', error);
       }
     };
+
     checkUser();
   }, [router]);
 
