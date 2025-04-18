@@ -3,6 +3,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabase';
 import { initializeAuthListener } from '@/utils/auth-state';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
+import { getAuthErrorMessage, logAuthError } from '@/utils/error-messages';
+import { withRetry } from '@/utils/retry';
 
 interface AuthFormProps {
   mode: 'signin' | 'signup' | 'reset';
@@ -44,23 +48,46 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
+        await withRetry(async () => {
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName,
+              },
             },
-          },
+          });
+          if (error) {
+            throw new AuthError(
+              'Failed to sign up',
+              AuthErrorCodes.SIGNUP_ERROR,
+              error
+            );
+          }
         });
-        if (error) throw error;
         setMessage('Check your email for the confirmation link.');
       } else if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        await withRetry(async () => {
+          const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (error) {
+            if (error.message.includes('Email not confirmed')) {
+              throw new AuthError(
+                'Email not confirmed',
+                AuthErrorCodes.EMAIL_NOT_CONFIRMED,
+                error
+              );
+            }
+            throw new AuthError(
+              'Invalid credentials',
+              AuthErrorCodes.INVALID_CREDENTIALS,
+              error
+            );
+          }
         });
-        if (error) throw error;
         // If there's a redirect URL, use it, otherwise go to dashboard
         if (redirectedFrom) {
           router.push(redirectedFrom);
@@ -69,18 +96,35 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
         }
         router.refresh();
       } else if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: '/auth/reset-password',
+        await withRetry(async () => {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: '/auth/reset-password',
+          });
+          if (error) {
+            throw new AuthError(
+              'Failed to reset password',
+              AuthErrorCodes.PASSWORD_RESET_ERROR,
+              error
+            );
+          }
         });
-        if (error) throw error;
         setMessage('Check your email for the password reset link.');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      logAuthError(error, `AuthForm-${mode}`);
+      setError(getAuthErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -148,41 +192,24 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
+            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
+              {error}
+            </div>
           )}
           {message && (
-            <div className="text-green-600 text-sm text-center">{message}</div>
+            <div className="text-green-600 text-sm text-center bg-green-50 p-3 rounded-md">
+              {message}
+            </div>
           )}
 
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                  <svg
-                    className="animate-spin h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                </span>
+                <LoadingSpinner size="sm" className="mr-2" />
               ) : null}
               {mode === 'signin' && 'Sign in'}
               {mode === 'signup' && 'Sign up'}
@@ -191,7 +218,6 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
           </div>
         </form>
         
-        {/* Add links directly in the AuthForm component */}
         <div className="mt-6 text-center space-y-2">
           {mode === 'signin' && (
             <>
@@ -230,7 +256,7 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
 // Main component that wraps the inner component with Suspense
 export default function AuthForm(props: AuthFormProps) {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<LoadingSpinner size="lg" />}>
       <AuthFormWithParams {...props} />
     </Suspense>
   );
