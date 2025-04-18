@@ -1,4 +1,4 @@
-import { registerWebhookEndpoint } from './stripe-events';
+import { registerWebhookEndpoint } from './stripe';
 import { logger } from './logger';
 
 let isInitialized = false;

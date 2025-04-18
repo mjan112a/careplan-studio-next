@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateAndCheckCustomerStatus } from '@/lib/stripe-customer';
+import { authenticateAndCheckCustomerStatus } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
 
 /**

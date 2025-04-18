@@ -1,4 +1,4 @@
-import { CustomerSubscriptionStatus } from './stripe-customer';
+import { CustomerSubscriptionStatus } from './stripe';
 
 /**
  * Fetches a customer's subscription status from the API

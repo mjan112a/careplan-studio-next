@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CustomerSubscriptionStatus } from '@/lib/stripe-customer';
+import { CustomerSubscriptionStatus } from '@/lib/stripe';
 import { fetchCustomerStatus, hasProductAccess, isInTrialPeriod, getExpirationDate } from '@/lib/customer-status';
 
 interface CustomerStatusProps {
