@@ -43,6 +43,24 @@ function getBaseUrlFromHeaders(headers?: Headers | ReadonlyHeaders): string {
     return url;
   }
 
+  // For client-side usage in production
+  if (typeof window !== 'undefined') {
+    // Use the current window location
+    const clientUrl = window.location.origin;
+    logger.debug('Client-side in production, using window.location.origin:', { clientUrl });
+    return clientUrl;
+  }
+
+  // Log all VERCEL_* environment variables that have values
+  const vercelEnvVars: Record<string, string> = {};
+  Object.keys(process.env).forEach(key => {
+    if (key.startsWith('VERCEL_') && process.env[key]) {
+      vercelEnvVars[key] = process.env[key] || '';
+    }
+  });
+  
+  logger.debug('VERCEL_* environment variables:', vercelEnvVars);
+
   // Fallback for server-side rendering or when headers are not available
   const fallbackUrl = process.env.VERCEL_URL 
     ? `https://${process.env.VERCEL_URL}` 
