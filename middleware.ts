@@ -7,10 +7,6 @@ import { initializeServer } from '@/lib/server-init';
 // Initialize server on first request
 let initializationPromise: Promise<void> | null = null;
 
-// Cache for auth checks to prevent excessive requests
-const authCheckCache = new Map<string, { session: any, timestamp: number }>();
-const AUTH_CACHE_TTL = 60000; // 1 minute cache
-
 export async function middleware(req: NextRequest) {
   // Initialize server if not already done
   if (!initializationPromise) {
@@ -42,54 +38,34 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 
-  // Check if we have a cached auth result for this request
-  const cacheKey = req.cookies.get('sb-access-token')?.value || 'no-token';
-  const cachedAuth = authCheckCache.get(cacheKey);
-  const now = Date.now();
-  
+  // Get session directly without caching
   let session = null;
-  
-  // Use cached auth if available and not expired
-  if (cachedAuth && (now - cachedAuth.timestamp < AUTH_CACHE_TTL)) {
-    session = cachedAuth.session;
-  } else {
-    // Get fresh session
-    try {
-      const { data } = await supabase.auth.getSession();
-      session = data.session;
-      
-      // Update cache
-      authCheckCache.set(cacheKey, { session, timestamp: now });
-      
-      // Clean up old cache entries
-      const entriesToDelete: string[] = [];
-      authCheckCache.forEach((value, key) => {
-        if (now - value.timestamp > AUTH_CACHE_TTL) {
-          entriesToDelete.push(key);
-        }
-      });
-      
-      entriesToDelete.forEach(key => {
-        authCheckCache.delete(key);
-      });
-    } catch (error) {
-      logger.error('Error getting session in middleware:', { error: error instanceof Error ? error.message : String(error) });
-    }
+  try {
+    const { data } = await supabase.auth.getSession();
+    session = data.session;
+  } catch (error) {
+    logger.error('Error getting session in middleware:', { error: error instanceof Error ? error.message : String(error) });
   }
 
-  // If user is not signed in and the current path is not /auth/*, /home, or /, redirect to /auth/signin
+  // If user is not signed in and the current path is not /auth/*, /home, or /, redirect to /
   if (!session && 
       !req.nextUrl.pathname.startsWith('/auth') && 
       req.nextUrl.pathname !== '/home' && 
       req.nextUrl.pathname !== '/') {
     const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = '/auth/signin';
-    redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname);
+    redirectUrl.pathname = '/';
     return NextResponse.redirect(redirectUrl);
   }
 
   // If user is signed in and the current path is /auth/*, redirect to /dashboard
   if (session && req.nextUrl.pathname.startsWith('/auth')) {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = '/dashboard';
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // If user is signed in and the current path is / or /home, redirect to /dashboard
+  if (session && (req.nextUrl.pathname === '/' || req.nextUrl.pathname === '/home')) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = '/dashboard';
     return NextResponse.redirect(redirectUrl);

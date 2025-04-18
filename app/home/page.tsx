@@ -1,9 +1,32 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, CheckCircle, BarChart2, Upload, PieChart, Users, Play } from "lucide-react"
 import PricingSection from "../components/PricingSection"
+import { getSession } from '@/utils/auth-state';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const session = await getSession();
+        if (session) {
+          // If authenticated, redirect to dashboard
+          router.push('/dashboard');
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}

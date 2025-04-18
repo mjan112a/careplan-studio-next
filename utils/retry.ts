@@ -15,7 +15,7 @@ export const withRetry = async <T>(
       
       // Don't retry if it's an auth error that shouldn't be retried
       if (error instanceof AuthError && 
-          [AuthErrorCodes.INVALID_CREDENTIALS, AuthErrorCodes.EMAIL_NOT_CONFIRMED].includes(error.code)) {
+          [AuthErrorCodes.INVALID_CREDENTIALS, AuthErrorCodes.EMAIL_NOT_CONFIRMED].includes(error.code as any)) {
         throw error;
       }
       

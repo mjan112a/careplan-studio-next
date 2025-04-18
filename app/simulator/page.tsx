@@ -13,23 +13,23 @@ export default function SimulatorPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const getUser = async () => {
+    const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          router.push('/auth/signin');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.push('/');
           return;
         }
-        setUser(user);
+        setUser(session.user);
       } catch (error) {
-        console.error('Error fetching user data:', error);
-        router.push('/auth/signin');
+        console.error('Error checking authentication:', error);
+        router.push('/');
       } finally {
         setLoading(false);
       }
     };
 
-    getUser();
+    checkAuth();
   }, [router]);
 
   if (loading) {

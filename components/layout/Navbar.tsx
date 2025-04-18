@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { User } from '@supabase/supabase-js';
+import { getUser } from '@/utils/auth-state';
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
@@ -11,10 +12,10 @@ export default function Navbar() {
   const router = useRouter();
 
   useEffect(() => {
-    const getUser = async () => {
+    const loadUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
+        const currentUser = await getUser();
+        setUser(currentUser);
       } catch (error) {
         console.error('Error fetching user:', error);
       } finally {
@@ -22,9 +23,9 @@ export default function Navbar() {
       }
     };
 
-    getUser();
+    loadUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
     });
 
@@ -36,7 +37,7 @@ export default function Navbar() {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      router.push('/auth/signin');
+      router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }

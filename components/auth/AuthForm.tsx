@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabase';
-import { initializeAuthListener } from '@/utils/auth-state';
+import { initializeAuthListener, getSession } from '@/utils/auth-state';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
 import { getAuthErrorMessage, logAuthError } from '@/utils/error-messages';
@@ -24,14 +24,41 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get('redirectedFrom');
 
-  // Listen for auth state changes to handle redirects after signup
+  // Check initial auth state
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const session = await getSession();
+        if (session) {
+          // If we're on an auth page and have a session, redirect to dashboard
+          if (redirectedFrom) {
+            router.push(redirectedFrom);
+          } else {
+            router.push('/dashboard');
+          }
+        }
+      } catch (error) {
+        // Only log the error, don't show it to the user
+        logAuthError(error, 'AuthForm-initial-check');
+      }
+    };
+
+    checkAuth();
+  }, [router, redirectedFrom]);
+
+  // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = initializeAuthListener((event, session) => {
-      if (event === 'SIGNED_IN' && redirectedFrom) {
-        // Add a small delay before redirect to prevent rapid state changes
-        setTimeout(() => {
+      if (event === 'SIGNED_IN' && session) {
+        // Clear any existing error
+        setError(null);
+        
+        // If there's a redirect URL, use it, otherwise go to dashboard
+        if (redirectedFrom) {
           router.push(redirectedFrom);
-        }, 100);
+        } else {
+          router.push('/dashboard');
+        }
       }
     });
 
@@ -74,36 +101,22 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
             password,
           });
           if (error) {
-            if (error.message.includes('Email not confirmed')) {
-              throw new AuthError(
-                'Email not confirmed',
-                AuthErrorCodes.EMAIL_NOT_CONFIRMED,
-                error
-              );
-            }
             throw new AuthError(
-              'Invalid credentials',
-              AuthErrorCodes.INVALID_CREDENTIALS,
+              'Failed to sign in',
+              AuthErrorCodes.SIGNIN_ERROR,
               error
             );
           }
         });
-        // If there's a redirect URL, use it, otherwise go to dashboard
-        if (redirectedFrom) {
-          router.push(redirectedFrom);
-        } else {
-          router.push('/dashboard');
-        }
-        router.refresh();
       } else if (mode === 'reset') {
         await withRetry(async () => {
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: '/auth/reset-password',
+            redirectTo: `${window.location.origin}/auth/update-password`,
           });
           if (error) {
             throw new AuthError(
-              'Failed to reset password',
-              AuthErrorCodes.PASSWORD_RESET_ERROR,
+              'Failed to send reset password email',
+              AuthErrorCodes.RESET_PASSWORD_ERROR,
               error
             );
           }
@@ -111,7 +124,7 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
         setMessage('Check your email for the password reset link.');
       }
     } catch (error) {
-      logAuthError(error, `AuthForm-${mode}`);
+      logAuthError(error, 'AuthForm-handleSubmit');
       setError(getAuthErrorMessage(error));
     } finally {
       setLoading(false);

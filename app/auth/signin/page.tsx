@@ -13,6 +13,7 @@ export default function SignIn() {
       try {
         const session = await getSession();
         if (session) {
+          // If authenticated, redirect to dashboard
           router.push('/dashboard');
         }
       } catch (error) {

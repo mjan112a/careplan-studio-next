@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/utils/supabase';
+import { getSession } from '@/utils/auth-state';
 
 export default function RootPage() {
   const router = useRouter();
@@ -10,15 +10,17 @@ export default function RootPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await getSession();
         if (session) {
+          // If authenticated, redirect to dashboard
           router.push('/dashboard');
         } else {
+          // If not authenticated, redirect to home page
           router.push('/home');
         }
       } catch (error) {
         console.error('Error checking authentication:', error);
-        // If there's an error, redirect to home page as a fallback
+        // On error, redirect to home page
         router.push('/home');
       }
     };

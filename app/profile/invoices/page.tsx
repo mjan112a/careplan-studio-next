@@ -26,33 +26,33 @@ export default function InvoicesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchInvoices = async () => {
+    const getUser = async () => {
       try {
-        // Get the current user
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
         if (userError) throw userError;
         if (!user) {
-          router.push('/auth/signin');
+          router.push('/');
           return;
         }
 
-        // Fetch invoices using the stored procedure
-        const { data, error } = await supabase
-          .rpc('get_user_invoices', { p_user_id: user.id });
+        // Fetch invoices
+        const { data: invoices, error: invoicesError } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        
-        setInvoices(data || []);
-      } catch (err) {
-        console.error('Error fetching invoices:', err);
+        if (invoicesError) throw invoicesError;
+        setInvoices(invoices || []);
+      } catch (error) {
+        console.error('Error fetching user data:', error);
         setError('Failed to load invoices. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchInvoices();
+    getUser();
   }, [router]);
 
   if (loading) {

@@ -4,105 +4,70 @@ import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
 import { withRetry } from './retry';
 import { logAuthError } from './error-messages';
 
-// Cache for auth state
-let cachedSession: Session | null = null;
-let cachedUser: User | null = null;
-let lastAuthCheck = 0;
-const AUTH_CACHE_TTL = 60000; // 1 minute cache
-
-// Centralized function to get session with caching
-export const getSession = async (forceRefresh = false): Promise<Session | null> => {
-  const now = Date.now();
-  
-  // Return cached session if it's still valid and not forcing refresh
-  if (!forceRefresh && cachedSession && (now - lastAuthCheck < AUTH_CACHE_TTL)) {
-    return cachedSession;
-  }
-  
-  return withRetry(async () => {
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
+// Simple function to get session without caching
+export const getSession = async (): Promise<Session | null> => {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      // Check for refresh token errors
+      if (error.message.includes('refresh_token_not_found')) {
         throw new AuthError(
-          'Failed to get session',
-          AuthErrorCodes.SESSION_ERROR,
+          'Session expired',
+          AuthErrorCodes.REFRESH_TOKEN_ERROR,
           error
         );
       }
-      
-      // Update cache
-      cachedSession = data.session;
-      cachedUser = data.session?.user || null;
-      lastAuthCheck = now;
-      
-      return data.session;
-    } catch (error) {
-      if (error instanceof AuthError) {
-        throw error;
-      }
       throw new AuthError(
-        'Unexpected error while getting session',
-        AuthErrorCodes.NETWORK_ERROR,
+        'Failed to get session',
+        AuthErrorCodes.SESSION_ERROR,
         error
       );
     }
-  });
-};
-
-// Centralized function to get user with caching
-export const getUser = async (forceRefresh = false): Promise<User | null> => {
-  try {
-    // If we have a cached user and not forcing refresh, return it
-    if (!forceRefresh && cachedUser) {
-      return cachedUser;
-    }
     
-    // Get fresh session which will update the cache
-    await getSession(forceRefresh);
-    return cachedUser;
+    return data.session;
   } catch (error) {
-    logAuthError(error, 'getUser');
+    logAuthError(error, 'getSession');
     throw error;
   }
 };
 
-// Function to clear the cache (useful after sign out)
-export const clearAuthCache = () => {
-  cachedSession = null;
-  cachedUser = null;
-  lastAuthCheck = 0;
+// Get user from session
+export const getUser = async (): Promise<User | null> => {
+  const session = await getSession();
+  return session?.user || null;
 };
 
-// Set up a single auth state change listener
-let authListenerInitialized = false;
-
-export const initializeAuthListener = (callback: (event: string, session: Session | null) => void) => {
-  if (authListenerInitialized) return;
-  
+// Simple function to recover from auth errors
+export const recoverFromAuthError = async () => {
   try {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Update cache
-      cachedSession = session;
-      cachedUser = session?.user || null;
-      lastAuthCheck = Date.now();
-      
-      // Call the callback
-      callback(event, session);
-    });
+    // Try to refresh the session
+    const { data, error } = await supabase.auth.refreshSession();
     
-    authListenerInitialized = true;
+    if (error) {
+      throw new AuthError(
+        'Failed to refresh session',
+        AuthErrorCodes.SESSION_ERROR,
+        error
+      );
+    }
     
-    return () => {
-      subscription.unsubscribe();
-      authListenerInitialized = false;
-    };
+    return data.session;
   } catch (error) {
-    logAuthError(error, 'initializeAuthListener');
-    throw new AuthError(
-      'Failed to initialize auth listener',
-      AuthErrorCodes.SESSION_ERROR,
-      error
-    );
+    logAuthError(error, 'recoverFromAuthError');
+    throw error;
   }
+};
+
+// Initialize auth listener
+export const initializeAuthListener = (callback?: (event: string, session: Session | null) => void) => {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    if (callback) {
+      callback(event, session);
+    }
+  });
+  
+  return () => {
+    subscription.unsubscribe();
+  };
 }; 

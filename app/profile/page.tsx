@@ -23,7 +23,7 @@ export default function Profile() {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError) throw userError;
         if (!user) {
-          router.push('/auth/signin');
+          router.push('/');
           return;
         }
         setUser(user);

@@ -17,10 +17,21 @@ export const getAuthErrorMessage = (error: unknown): string => {
         return 'Unable to sign in. Please try again.';
       case AuthErrorCodes.SESSION_ERROR:
         return 'Session error. Please try signing in again.';
+      case AuthErrorCodes.REFRESH_TOKEN_ERROR:
+        return 'Your session has expired. Please sign in again.';
       default:
         return 'An unexpected error occurred. Please try again later.';
     }
   }
+  
+  // Handle Supabase specific errors
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code: string }).code;
+    if (code === 'refresh_token_not_found') {
+      return 'Your session has expired. Please sign in again.';
+    }
+  }
+  
   return 'An unexpected error occurred. Please try again later.';
 };
 
