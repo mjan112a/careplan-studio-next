@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Layout from '@/components/layout/Layout';
-import { supabase } from '@/utils/supabase';
 import { format } from 'date-fns';
 import Link from 'next/link';
 
@@ -26,33 +25,28 @@ export default function InvoicesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const getUser = async () => {
+    const fetchInvoices = async () => {
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
-        if (!user) {
-          router.push('/');
-          return;
+        const response = await fetch('/api/invoices');
+        if (!response.ok) {
+          if (response.status === 401) {
+            router.push('/');
+            return;
+          }
+          throw new Error('Failed to fetch invoices');
         }
 
-        // Fetch invoices
-        const { data: invoices, error: invoicesError } = await supabase
-          .from('invoices')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (invoicesError) throw invoicesError;
-        setInvoices(invoices || []);
+        const data = await response.json();
+        setInvoices(data.invoices || []);
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error('Error fetching invoices:', error);
         setError('Failed to load invoices. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    getUser();
+    fetchInvoices();
   }, [router]);
 
   if (loading) {
