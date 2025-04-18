@@ -15,7 +15,14 @@ export const withRetry = async <T>(
       
       // Don't retry if it's an auth error that shouldn't be retried
       if (error instanceof AuthError && 
-          [AuthErrorCodes.INVALID_CREDENTIALS, AuthErrorCodes.EMAIL_NOT_CONFIRMED].includes(error.code as any)) {
+          [AuthErrorCodes.INVALID_CREDENTIALS, 
+           AuthErrorCodes.EMAIL_NOT_CONFIRMED,
+           AuthErrorCodes.SIGNIN_ERROR].includes(error.code as any)) {
+        throw error;
+      }
+      
+      // If it's the last attempt and we have a specific error, throw that instead of a generic network error
+      if (attempt === maxRetries && error instanceof AuthError) {
         throw error;
       }
       
@@ -25,6 +32,7 @@ export const withRetry = async <T>(
     }
   }
   
+  // Only throw network error if we don't have a more specific error
   throw new AuthError(
     'Operation failed after multiple retries',
     AuthErrorCodes.NETWORK_ERROR,

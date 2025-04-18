@@ -101,6 +101,14 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
             password,
           });
           if (error) {
+            // Map Supabase's invalid credentials error to our error code
+            if (error.message.includes('Invalid login credentials')) {
+              throw new AuthError(
+                'Invalid email or password',
+                AuthErrorCodes.INVALID_CREDENTIALS,
+                error
+              );
+            }
             throw new AuthError(
               'Failed to sign in',
               AuthErrorCodes.SIGNIN_ERROR,
