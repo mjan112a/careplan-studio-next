@@ -44,14 +44,14 @@ We have decided to:
 
 ## Implementation Notes
 ### Logger Implementation
-- Logger is implemented in `lib/logger.ts`
+- Logger is implemented in `lib/logging/` with separate client and server implementations
 - Uses chalk for colorful output
 - Includes stack trace parsing for better context
 - Supports different log levels and formatting options
 
 ### Standard Usage Patterns
 ```typescript
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 
 // Info logging with context
 logger.info('Operation completed', { contextData: 'value' });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAndCheckCustomerStatus } from '@/lib/stripe';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 
 /**
  * API route to check a customer's subscription status

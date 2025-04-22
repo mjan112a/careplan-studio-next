@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 import { ReadonlyHeaders } from 'next/dist/server/web/spec-extension/adapters/headers';
 
 /**

@@ -1,5 +1,5 @@
 import { registerWebhookEndpoint } from './stripe';
-import { logger } from './logger';
+import { logger } from './logging';
 
 let isInitialized = false;
 

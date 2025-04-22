@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 import { supabase } from '@/utils/supabase';
 
 // This is your Stripe webhook secret for testing your endpoint locally.

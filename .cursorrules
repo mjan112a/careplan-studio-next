@@ -13,7 +13,7 @@ DECISION: Use chalk-based colorful logging with full stack trace support.
 
 IMPLEMENTATION:
 ```typescript
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 
 // Correct usage patterns:
 logger.info('Operation completed');

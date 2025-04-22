@@ -33,7 +33,7 @@
  */
 
 import Stripe from 'stripe';
-import { logger } from './logger';
+import { logger } from './logging';
 import { getBaseUrl } from '@/utils/url';
 
 // Log environment variables (without exposing the actual key)

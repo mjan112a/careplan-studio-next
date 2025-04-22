@@ -162,7 +162,7 @@ function processPayment(amount, userId) {
 Review the provided code files and transform them according to these guidelines. Ensure all significant events are logged at the appropriate level with proper context. Make the code more maintainable and debuggable through comprehensive logging.
 
 Remember to:
-1. Import the logger at the top of each file: `import { logger } from '@/lib/logger';`
+1. Import the logger at the top of each file: `import { logger } from '@/lib/logging';`
 2. Use appropriate log levels based on the significance of the event
 3. Include relevant context in all log messages
 4. Follow error handling best practices

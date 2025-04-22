@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { getBaseUrl } from '@/utils/url';

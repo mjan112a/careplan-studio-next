@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Script from 'next/script';
 import './StripePricingTable.css';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 import { getBaseUrl } from '@/utils/url';
 
 // Declare the custom element for TypeScript

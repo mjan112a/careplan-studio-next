@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { Button } from '@/components/ui/button';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 
 // Dynamically import the StripePricingTableIsolated component with no SSR
 const StripePricingTableIsolated = dynamic(

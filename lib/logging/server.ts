@@ -1,8 +1,5 @@
-import chalk from 'chalk';
-import { format as formatDate } from 'date-fns';
-
 /**
- * Logger implementation for Node.js runtime environment.
+ * Server-side logger implementation for Node.js runtime environment.
  * 
  * Design Decisions:
  * - Uses Node.js runtime for full API access and better debugging
@@ -14,60 +11,65 @@ import { format as formatDate } from 'date-fns';
  * @see README.md for usage examples
  */
 
-// Log level definitions
-export enum LogLevels {
-  ERROR = 0,
-  WARN = 1,
-  INFO = 2,
-  DEBUG = 3
+import chalk from 'chalk';
+import { format as formatDate } from 'date-fns';
+import { 
+  LogLevel, 
+  BaseLogEntry, 
+  ILogger, 
+  LoggerConfig,
+  LogFormat,
+  isLogLevel,
+  getLogLevelName 
+} from './types';
+
+// Server-specific log entry interface
+interface ServerLogEntry extends BaseLogEntry {
+  stack?: string;
+  pid?: number;
 }
 
-export type LogLevel = LogLevels;
-
-// Type guard for log levels
-export function isLogLevel(level: unknown): level is LogLevel {
-  return typeof level === 'number' && Object.values(LogLevels).includes(level as LogLevels);
-}
-
-// Get human readable log level name
-function getLogLevelName(level: LogLevel): string {
-  return LogLevels[level];
-}
-
-// Format options interface
-interface LogFormat {
-  timestamp?: string; // date-fns format string
-  showLevel?: boolean;
-  showColors?: boolean;
-  showContext?: boolean;
-}
-
-// Default format configuration
-const DEFAULT_FORMAT: LogFormat = {
-  timestamp: 'yyyy-MM-dd HH:mm:ss.SSS',
-  showLevel: true,
-  showColors: true,
-  showContext: true
+const DEFAULT_CONFIG: LoggerConfig = {
+  defaultLevel: LogLevel.INFO,
+  format: {
+    timestamp: 'yyyy-MM-dd HH:mm:ss.SSS',
+    showLevel: true,
+    showColors: true,
+    showContext: true
+  }
 };
 
-// Logger interface
-export interface ILogger {
-  setLogLevel(level: LogLevel): void;
-  error(message: string, context?: Record<string, unknown>): void;
-  warn(message: string, context?: Record<string, unknown>): void;
-  info(message: string, context?: Record<string, unknown>): void;
-  debug(message: string, context?: Record<string, unknown>): void;
-}
-
-// Chalk-based logger implementation
-export class ChalkLogger implements ILogger {
+export class ServerLogger implements ILogger {
   private currentLevel: LogLevel;
+  private config: LoggerConfig;
 
-  constructor(level: LogLevel = LogLevels.INFO) {
-    if (!isLogLevel(level)) {
-      throw new Error(`Invalid log level: ${level}`);
-    }
-    this.currentLevel = level;
+  constructor(config: Partial<LoggerConfig> = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.currentLevel = this.config.defaultLevel || LogLevel.INFO;
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    return level <= this.currentLevel;
+  }
+
+  private formatMessage(entry: ServerLogEntry): string {
+    const timestamp = chalk.gray(formatDate(
+      new Date(entry.timestamp),
+      this.config.format?.timestamp || DEFAULT_CONFIG.format!.timestamp!
+    ));
+
+    const levelColor = {
+      [LogLevel.ERROR]: chalk.red,
+      [LogLevel.WARN]: chalk.yellow,
+      [LogLevel.INFO]: chalk.blue,
+      [LogLevel.DEBUG]: chalk.gray
+    }[entry.level];
+    
+    const levelName = `[${getLogLevelName(entry.level)}]`;
+    const contextStr = entry.context ? chalk.cyan(` ${JSON.stringify(entry.context)}`) : '';
+    const stackStr = entry.stack ? `\n${chalk.gray(entry.stack)}` : '';
+    
+    return `${timestamp} ${levelColor(levelName)} ${entry.message}${contextStr}${stackStr}`;
   }
 
   setLogLevel(level: LogLevel): void {
@@ -77,51 +79,68 @@ export class ChalkLogger implements ILogger {
     this.currentLevel = level;
   }
 
-  private formatMessage(level: LogLevel, message: string, context?: Record<string, unknown>): string {
-    const timestamp = chalk.gray(new Date().toISOString());
-    const levelColor = {
-      [LogLevels.ERROR]: chalk.red,
-      [LogLevels.WARN]: chalk.yellow,
-      [LogLevels.INFO]: chalk.blue,
-      [LogLevels.DEBUG]: chalk.gray
-    }[level];
-    
-    const levelName = `[${LogLevels[level]}]`;
-    const contextStr = context ? chalk.cyan(` ${JSON.stringify(context)}`) : '';
-    
-    return `${timestamp} ${levelColor(levelName)} ${message}${contextStr}`;
-  }
-
-  private shouldLog(level: LogLevel): boolean {
-    return level <= this.currentLevel;
+  getLogLevel(): LogLevel {
+    return this.currentLevel;
   }
 
   error(message: string, context?: Record<string, unknown>): void {
-    if (this.shouldLog(LogLevels.ERROR)) {
-      console.error(this.formatMessage(LogLevels.ERROR, message, context));
+    if (this.shouldLog(LogLevel.ERROR)) {
+      const error = context?.error instanceof Error ? context.error as Error : undefined;
+      const entry: ServerLogEntry = {
+        level: LogLevel.ERROR,
+        message,
+        timestamp: new Date().toISOString(),
+        context,
+        stack: error?.stack,
+        pid: process.pid
+      };
+      console.error(this.formatMessage(entry));
     }
   }
 
   warn(message: string, context?: Record<string, unknown>): void {
-    if (this.shouldLog(LogLevels.WARN)) {
-      console.warn(this.formatMessage(LogLevels.WARN, message, context));
+    if (this.shouldLog(LogLevel.WARN)) {
+      const entry: ServerLogEntry = {
+        level: LogLevel.WARN,
+        message,
+        timestamp: new Date().toISOString(),
+        context,
+        pid: process.pid
+      };
+      console.warn(this.formatMessage(entry));
     }
   }
 
   info(message: string, context?: Record<string, unknown>): void {
-    if (this.shouldLog(LogLevels.INFO)) {
-      console.info(this.formatMessage(LogLevels.INFO, message, context));
+    if (this.shouldLog(LogLevel.INFO)) {
+      const entry: ServerLogEntry = {
+        level: LogLevel.INFO,
+        message,
+        timestamp: new Date().toISOString(),
+        context,
+        pid: process.pid
+      };
+      console.info(this.formatMessage(entry));
     }
   }
 
   debug(message: string, context?: Record<string, unknown>): void {
-    if (this.shouldLog(LogLevels.DEBUG)) {
-      console.debug(this.formatMessage(LogLevels.DEBUG, message, context));
+    if (this.shouldLog(LogLevel.DEBUG)) {
+      const entry: ServerLogEntry = {
+        level: LogLevel.DEBUG,
+        message,
+        timestamp: new Date().toISOString(),
+        context,
+        pid: process.pid
+      };
+      console.debug(this.formatMessage(entry));
     }
   }
 }
 
 // Create and export default logger instance
-export const logger = new ChalkLogger(
-  process.env.LOG_LEVEL ? parseInt(process.env.LOG_LEVEL, 10) : LogLevels.INFO
+export const logger = new ServerLogger(
+  process.env.LOG_LEVEL ? 
+    { defaultLevel: parseInt(process.env.LOG_LEVEL, 10) } : 
+    undefined
 ); 

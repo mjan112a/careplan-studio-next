@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 
 export async function GET() {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

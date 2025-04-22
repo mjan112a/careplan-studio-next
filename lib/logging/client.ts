@@ -10,154 +10,145 @@
  * and is specifically designed for browser environments.
  */
 
-// Log levels
-export enum LogLevel {
-  DEBUG = 'DEBUG',
-  INFO = 'INFO',
-  WARN = 'WARN',
-  ERROR = 'ERROR'
+import { 
+  LogLevel, 
+  BaseLogEntry, 
+  ILogger, 
+  LoggerConfig, 
+  isLogLevel 
+} from './types';
+
+// Client-specific log entry interface
+interface ClientLogEntry extends BaseLogEntry {
+  componentName?: string;
 }
 
-// Log entry interface
-interface LogEntry {
-  level: LogLevel;
-  message: string;
-  context: string;
-  timestamp: string;
-  data?: Record<string, any>;
-}
-
-// Log storage
-const logStorage: LogEntry[] = [];
-const MAX_LOG_ENTRIES = 100;
-
-/**
- * Adds a log entry to the log storage and console
- * @param entry The log entry to add
- */
-function addLogEntry(entry: LogEntry): void {
-  logStorage.push(entry);
-  
-  // Limit the number of log entries
-  if (logStorage.length > MAX_LOG_ENTRIES) {
-    logStorage.shift();
+const DEFAULT_CONFIG: LoggerConfig = {
+  defaultLevel: LogLevel.INFO,
+  maxEntries: 100,
+  format: {
+    showLevel: true,
+    showContext: true
   }
-  
-  // Format for browser console
-  const logMessage = entry.data ? 
-    [`[${entry.context}] ${entry.message}`, entry.data] :
-    [`[${entry.context}] ${entry.message}`];
-  
-  // Log to browser console based on level
-  switch (entry.level) {
-    case LogLevel.DEBUG:
-      console.debug(...logMessage);
-      break;
-    case LogLevel.INFO:
-      console.info(...logMessage);
-      break;
-    case LogLevel.WARN:
-      console.warn(...logMessage);
-      break;
-    case LogLevel.ERROR:
-      console.error(...logMessage);
-      break;
+};
+
+export class ClientLogger implements ILogger {
+  private currentLevel: LogLevel;
+  private logStorage: ClientLogEntry[];
+  private config: LoggerConfig;
+
+  constructor(config: Partial<LoggerConfig> = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.currentLevel = this.config.defaultLevel || LogLevel.INFO;
+    this.logStorage = [];
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    return level <= this.currentLevel;
+  }
+
+  private addLogEntry(entry: ClientLogEntry): void {
+    this.logStorage.push(entry);
+    
+    // Limit the number of log entries
+    if (this.logStorage.length > (this.config.maxEntries || DEFAULT_CONFIG.maxEntries!)) {
+      this.logStorage.shift();
+    }
+    
+    // Format for browser console
+    const logMessage = entry.context ? 
+      [`[${entry.level}] ${entry.message}`, entry.context] :
+      [`[${entry.level}] ${entry.message}`];
+    
+    // Log to browser console based on level
+    switch (entry.level) {
+      case LogLevel.DEBUG:
+        console.debug(...logMessage);
+        break;
+      case LogLevel.INFO:
+        console.info(...logMessage);
+        break;
+      case LogLevel.WARN:
+        console.warn(...logMessage);
+        break;
+      case LogLevel.ERROR:
+        console.error(...logMessage);
+        break;
+    }
+  }
+
+  setLogLevel(level: LogLevel): void {
+    if (!isLogLevel(level)) {
+      throw new Error(`Invalid log level: ${level}`);
+    }
+    this.currentLevel = level;
+  }
+
+  getLogLevel(): LogLevel {
+    return this.currentLevel;
+  }
+
+  error(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.ERROR)) {
+      this.addLogEntry({
+        level: LogLevel.ERROR,
+        message,
+        timestamp: new Date().toISOString(),
+        context
+      });
+    }
+  }
+
+  warn(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.WARN)) {
+      this.addLogEntry({
+        level: LogLevel.WARN,
+        message,
+        timestamp: new Date().toISOString(),
+        context
+      });
+    }
+  }
+
+  info(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.INFO)) {
+      this.addLogEntry({
+        level: LogLevel.INFO,
+        message,
+        timestamp: new Date().toISOString(),
+        context
+      });
+    }
+  }
+
+  debug(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.DEBUG)) {
+      this.addLogEntry({
+        level: LogLevel.DEBUG,
+        message,
+        timestamp: new Date().toISOString(),
+        context
+      });
+    }
+  }
+
+  // Client-specific methods for log retrieval and filtering
+  getLogEntries(): ClientLogEntry[] {
+    return [...this.logStorage];
+  }
+
+  getLogEntriesByLevel(level: LogLevel): ClientLogEntry[] {
+    return this.logStorage.filter(entry => entry.level === level);
+  }
+
+  clearLogEntries(): void {
+    this.logStorage = [];
   }
 }
 
-/**
- * Logs a debug message to browser console
- * @param message The message to log
- * @param context The context where the log occurred
- * @param data Additional data to log
- */
-export function logDebug(message: string, context: string, data?: Record<string, any>): void {
-  addLogEntry({
-    level: LogLevel.DEBUG,
-    message,
-    context,
-    timestamp: new Date().toISOString(),
-    data
-  });
-}
-
-/**
- * Logs an info message to browser console
- * @param message The message to log
- * @param context The context where the log occurred
- * @param data Additional data to log
- */
-export function logInfo(message: string, context: string, data?: Record<string, any>): void {
-  addLogEntry({
-    level: LogLevel.INFO,
-    message,
-    context,
-    timestamp: new Date().toISOString(),
-    data
-  });
-}
-
-/**
- * Logs a warning message to browser console
- * @param message The message to log
- * @param context The context where the log occurred
- * @param data Additional data to log
- */
-export function logWarn(message: string, context: string, data?: Record<string, any>): void {
-  addLogEntry({
-    level: LogLevel.WARN,
-    message,
-    context,
-    timestamp: new Date().toISOString(),
-    data
-  });
-}
-
-/**
- * Logs an error message to browser console
- * @param message The message to log
- * @param context The context where the log occurred
- * @param data Additional data to log
- */
-export function logError(message: string, context: string, data?: Record<string, any>): void {
-  addLogEntry({
-    level: LogLevel.ERROR,
-    message,
-    context,
-    timestamp: new Date().toISOString(),
-    data
-  });
-}
-
-/**
- * Gets all client-side log entries
- * @returns All log entries from browser session
- */
-export function getLogEntries(): LogEntry[] {
-  return [...logStorage];
-}
-
-/**
- * Gets client-side log entries by level
- * @param level The log level to filter by
- * @returns Log entries with the specified level
- */
-export function getLogEntriesByLevel(level: LogLevel): LogEntry[] {
-  return logStorage.filter(entry => entry.level === level);
-}
-
-/**
- * Gets client-side log entries by context
- * @param context The context to filter by
- * @returns Log entries with the specified context
- */
-export function getLogEntriesByContext(context: string): LogEntry[] {
-  return logStorage.filter(entry => entry.context === context);
-}
-
-/**
- * Clears all client-side log entries
- */
-export function clearLogEntries(): void {
-  logStorage.length = 0;
-} 
+// Create and export default logger instance
+export const logger = new ClientLogger(
+  typeof window !== 'undefined' && window.localStorage?.getItem('logLevel') 
+    ? { defaultLevel: parseInt(window.localStorage.getItem('logLevel')!, 10) }
+    : undefined
+); 

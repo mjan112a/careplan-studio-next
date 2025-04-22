@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 
 export async function GET() {
   try {

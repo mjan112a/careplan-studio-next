@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logging';
 
 export async function GET() {
   try {
