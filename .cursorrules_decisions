@@ -1,0 +1,214 @@
+# Cursor AI Design Decisions
+
+## Runtime Environment
+DECISION: Use Node.js Runtime instead of Edge Runtime for all server-side code.
+
+RATIONALE:
+- Prioritize developer experience and debugging capabilities
+- No specific need for Edge Runtime benefits
+- Full access to Node.js APIs required
+- Performance difference negligible for our use case
+
+IMPLEMENTATION:
+- All middleware and API routes should use `export const runtime = 'nodejs'`
+- No Edge Runtime specific code patterns should be used
+- Full Node.js API access is available and encouraged
+
+## Logging Standards
+DECISION: Use chalk-based colorful logging with full stack trace support.
+
+IMPLEMENTATION:
+```typescript
+import { logger } from '@/lib/logger';
+
+// Correct usage patterns:
+logger.info('Operation completed');
+logger.debug('Processing request', { contextData: 'value' });
+logger.error('Operation failed', { error: error.message });
+
+// Do NOT use:
+console.log();  // Use logger instead
+console.error();  // Use logger instead
+```
+
+CONFIGURATION:
+- Log levels: DEBUG < INFO < WARN < ERROR
+- Environment variable: NEXT_PUBLIC_LOG_LEVEL
+- Default format includes timestamp, level, module, line number
+
+## Code Generation Guidelines
+When generating code:
+1. Always use the logger for any logging operations
+2. Include appropriate error handling with logger.error calls
+3. Use Node.js APIs freely - no need to check for Edge Runtime compatibility
+4. Include stack traces in error logging
+5. Add debug logging for important operations
+6. Use typescript strict mode
+7. Follow the existing color scheme in logger output
+
+## File Organization
+- ADRs go in `docs/adr/`
+- Library code goes in `lib/`
+- Components go in `components/`
+- Pages go in `app/`
+- Utilities go in `utils/`
+
+## Testing Requirements
+- Include error cases in tests
+- Mock logger in tests
+- Test different log levels
+- Verify log output format
+
+## Error Handling Pattern
+```typescript
+try {
+  // operation
+} catch (error) {
+  logger.error('Operation failed', {
+    error: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    context: { /* relevant operation context */ }
+  });
+  throw error; // or handle appropriately
+}
+```
+
+## Middleware Pattern
+```typescript
+export const runtime = 'nodejs';  // Always include this
+
+export async function middleware(req: NextRequest) {
+  try {
+    // middleware logic
+  } catch (error) {
+    logger.error('Middleware error', {
+      error: error instanceof Error ? error.message : String(error),
+      path: req.nextUrl.pathname
+    });
+    // handle error appropriately
+  }
+}
+```
+
+## TypeScript and Module Standards
+DECISION: Use strict TypeScript with modern ES Module patterns.
+
+RATIONALE:
+- Strict TypeScript ensures type safety and better IDE support
+- ES Modules provide better tree-shaking and modern import/export syntax
+- Path aliases reduce import complexity and improve maintainability
+- Type-safe JSON imports prevent runtime errors
+
+IMPLEMENTATION:
+- TypeScript strict mode enabled
+- ESM modules with Node.js resolution
+- Path aliases configured in tsconfig.json
+- JSON module resolution enabled
+- Incremental builds for better performance
+
+CONFIGURATION:
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  }
+}
+```
+
+## Module Resolution Standards
+DECISION: Standardize module imports and cross-platform compatibility.
+
+RATIONALE:
+- Consistent import patterns improve code readability
+- Path aliases reduce refactoring complexity
+- Cross-platform compatibility ensures code works across environments
+- Type-safe dynamic imports prevent runtime errors
+
+IMPLEMENTATION:
+- Use '@/' prefix for absolute imports
+- Relative paths for closely related modules
+- Path.join() for file system operations
+- Explicit file extensions where required
+- Case-sensitive import paths
+
+EXAMPLES:
+```typescript
+// Correct
+import { MyComponent } from '@/components/MyComponent';
+import { handler } from '../api/handler';
+import path from 'path';
+
+const filePath = path.join(process.cwd(), 'data', 'config.json');
+
+// Incorrect
+import { MyComponent } from '../../../../components/MyComponent';
+import { handler } from '@/pages/api/handler';
+const filePath = process.cwd() + '/data/config.json';
+```
+
+## React and Next.js Patterns
+DECISION: Use React 19 with Next.js App Router and Server Components by default.
+
+RATIONALE:
+- Server Components reduce client-side JavaScript
+- App Router provides better code organization
+- Built-in optimizations improve performance
+- Experimental features enable better build times
+
+IMPLEMENTATION:
+- Server Components as default
+- Client Components marked explicitly
+- Leverage Next.js Image and Link components
+- Enable parallel and incremental builds
+
+## UI Framework Standards
+DECISION: Use Radix UI primitives with Tailwind CSS.
+
+RATIONALE:
+- Radix UI provides accessible primitives
+- Tailwind enables rapid styling
+- shadcn/ui patterns ensure consistency
+- Built-in responsive design system
+
+IMPLEMENTATION:
+- Component library based on shadcn/ui
+- Consistent class naming conventions
+- Responsive breakpoint system
+- ARIA and accessibility patterns
+
+## Database and Authentication
+DECISION: Use Supabase with SSR authentication.
+
+RATIONALE:
+- Type-safe database operations
+- Built-in row level security
+- Server-side auth prevents token exposure
+- PostgreSQL features available
+
+IMPLEMENTATION:
+- Server-side Supabase client
+- Type-safe database queries
+- Environment-based configuration
+- Secure auth token handling
+
+## Package Management and Build
+DECISION: Use pnpm with strict versioning.
+
+RATIONALE:
+- Better dependency deduplication
+- Faster installation times
+- Strict version control
+- Built-in monorepo support
+
+IMPLEMENTATION:
+- pnpm workspace configuration
+- Locked dependency versions
+- Node.js version constraints
+- Optimized build settings 
