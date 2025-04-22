@@ -5,7 +5,7 @@ import { supabase } from '@/utils/supabase';
 import { initializeAuthListener, getSession } from '@/utils/auth-state';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
-import { getAuthErrorMessage, logAuthError } from '@/utils/error-messages';
+import { logger } from '@/lib/logging';
 import { withRetry } from '@/utils/retry';
 
 interface AuthFormProps {
@@ -39,7 +39,7 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
         }
       } catch (error) {
         // Only log the error, don't show it to the user
-        logAuthError(error, 'AuthForm-initial-check');
+        logger.error('AuthForm-initial-check', { error });
       }
     };
 
@@ -132,8 +132,8 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
         setMessage('Check your email for the password reset link.');
       }
     } catch (error) {
-      logAuthError(error, 'AuthForm-handleSubmit');
-      setError(getAuthErrorMessage(error));
+      logger.error('AuthForm-handleSubmit', { error });
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setLoading(false);
     }

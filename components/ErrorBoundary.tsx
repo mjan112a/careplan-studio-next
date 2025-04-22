@@ -1,5 +1,5 @@
 import React from 'react';
-import { logAuthError } from '@/utils/error-messages';
+import { logger } from '@/lib/logging';
 
 interface Props {
   children: React.ReactNode;
@@ -22,7 +22,7 @@ class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logAuthError(error, 'ErrorBoundary');
+    logger.error('ErrorBoundary', { error, errorInfo });
   }
 
   render() {

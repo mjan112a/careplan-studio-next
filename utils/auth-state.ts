@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
 import { withRetry } from './retry';
-import { logAuthError } from './error-messages';
+import { logger } from '@/lib/logging';
 
 // Simple function to get session without caching
 export const getSession = async (): Promise<Session | null> => {
@@ -27,7 +27,7 @@ export const getSession = async (): Promise<Session | null> => {
     
     return data.session;
   } catch (error) {
-    logAuthError(error, 'getSession');
+    logger.error('getSession', { error });
     throw error;
   }
 };
@@ -54,7 +54,7 @@ export const recoverFromAuthError = async () => {
     
     return data.session;
   } catch (error) {
-    logAuthError(error, 'recoverFromAuthError');
+    logger.error('recoverFromAuthError', { error });
     throw error;
   }
 };

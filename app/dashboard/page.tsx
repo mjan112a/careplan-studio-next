@@ -8,7 +8,6 @@ import { User } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { getSession, recoverFromAuthError } from '@/utils/auth-state';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
-import { logAuthError } from '@/utils/error-messages';
 import { Button } from '@/components/ui/button';
 import { 
   BarChart2, 
@@ -21,6 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { logger } from '@/lib/logging';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -57,7 +57,7 @@ export default function Dashboard() {
         }
         setProfile(profile);
       } catch (error) {
-        logAuthError(error, 'Dashboard-loadDashboard');
+        logger.error('Dashboard load failed', { error, context: 'Dashboard-loadDashboard' });
         
         if (error instanceof AuthError) {
           if (error.code === AuthErrorCodes.REFRESH_TOKEN_ERROR) {
