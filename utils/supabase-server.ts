@@ -1,8 +1,23 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
+import { type NextRequest } from 'next/server'
 import { Database } from '@/types/supabase'
 
-export const createServerClient = () => {
-  const cookieStore = cookies()
-  return createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+export const createServerSupabaseClient = (request?: NextRequest) => {
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return request?.cookies.get(name)?.value
+        },
+        set(name, value, options) {
+          // Cookie setting is handled by the middleware
+        },
+        remove(name, options) {
+          // Cookie removal is handled by the middleware
+        }
+      }
+    }
+  )
 } 

@@ -6,7 +6,7 @@ import { initializeAuthListener, getSession } from '@/utils/auth-state';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
 import { logger } from '@/lib/logging';
-import { withRetry } from '@/utils/retry';
+import { withRetry } from '@/utils/auth_retry';
 
 interface AuthFormProps {
   mode: 'signin' | 'signup' | 'reset';
@@ -30,6 +30,10 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
       try {
         const session = await getSession();
         if (session) {
+          logger.info('User already authenticated', { 
+            userId: session.user.id,
+            redirectedFrom: redirectedFrom || 'none'
+          });
           // If we're on an auth page and have a session, redirect to dashboard
           if (redirectedFrom) {
             router.push(redirectedFrom);
@@ -38,8 +42,9 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
           }
         }
       } catch (error) {
-        // Only log the error, don't show it to the user
-        logger.error('AuthForm-initial-check', { error });
+        logger.error('Initial auth check failed', { 
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     };
 
@@ -49,6 +54,7 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = initializeAuthListener((event, session) => {
+      logger.info('Auth state changed', { event, userId: session?.user?.id });
       if (event === 'SIGNED_IN' && session) {
         // Clear any existing error
         setError(null);
@@ -63,7 +69,10 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
     });
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribe) {
+        logger.debug('Cleaning up auth listener');
+        unsubscribe();
+      }
     };
   }, [router, redirectedFrom]);
 
@@ -74,8 +83,11 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
     setLoading(true);
 
     try {
+      logger.info('Starting auth operation', { mode, email });
+
       if (mode === 'signup') {
         await withRetry(async () => {
+          logger.info('Attempting signup', { email });
           const { error } = await supabase.auth.signUp({
             email,
             password,
@@ -86,21 +98,25 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
             },
           });
           if (error) {
+            logger.error('Signup failed', { error: error.message });
             throw new AuthError(
               'Failed to sign up',
               AuthErrorCodes.SIGNUP_ERROR,
               error
             );
           }
+          logger.info('Signup successful, verification email sent', { email });
         });
         setMessage('Check your email for the confirmation link.');
       } else if (mode === 'signin') {
         await withRetry(async () => {
+          logger.info('Attempting signin', { email });
           const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
           if (error) {
+            logger.error('Signin failed', { error: error.message });
             // Map Supabase's invalid credentials error to our error code
             if (error.message.includes('Invalid login credentials')) {
               throw new AuthError(
@@ -115,24 +131,32 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
               error
             );
           }
+          logger.info('Signin successful', { email });
         });
       } else if (mode === 'reset') {
         await withRetry(async () => {
+          logger.info('Attempting password reset', { email });
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${window.location.origin}/auth/update-password`,
           });
           if (error) {
+            logger.error('Password reset failed', { error: error.message });
             throw new AuthError(
               'Failed to send reset password email',
               AuthErrorCodes.RESET_PASSWORD_ERROR,
               error
             );
           }
+          logger.info('Password reset email sent', { email });
         });
         setMessage('Check your email for the password reset link.');
       }
     } catch (error) {
-      logger.error('AuthForm-handleSubmit', { error });
+      logger.error('Auth operation failed', { 
+        mode,
+        error: error instanceof Error ? error.message : String(error),
+        errorCode: error instanceof AuthError ? error.code : 'unknown'
+      });
       setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setLoading(false);

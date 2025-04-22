@@ -1,5 +1,6 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/types/supabase'
+import { logger } from '@/lib/logging'
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL')
@@ -8,8 +9,19 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
-// Create the Supabase client
-export const supabase = createClientComponentClient<Database>()
+// Create the Supabase client with cookie support
+export const supabase = createBrowserClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  {
+    cookieOptions: {
+      name: 'sb-token',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    }
+  }
+)
 
 // Helper to check if user is authenticated
 export const isAuthenticated = async () => {

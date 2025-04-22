@@ -33,9 +33,19 @@ export default function Dashboard() {
   useEffect(() => {
     const loadDashboard = async () => {
       try {
+        // Add a small delay to ensure auth state has propagated
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Get session first to ensure we have valid auth state
+        logger.info('Dashboard: Loading session');
         const session = await getSession();
+        logger.info('Dashboard: Session state', { 
+          hasSession: !!session,
+          userId: session?.user?.id
+        });
+        
         if (!session?.user) {
+          logger.warn('Dashboard: No session found, redirecting to root');
           router.push('/');
           return;
         }
