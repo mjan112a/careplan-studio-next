@@ -56,6 +56,56 @@ export interface Database {
           email_verified?: boolean
         }
       }
+      user_stripe_history: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string
+          stripe_event_type: string
+          stripe_invoice_id: string | null
+          stripe_subscription_id: string | null
+          stripe_customer_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_charge_id: string | null
+          amount: number | null
+          currency: string | null
+          hosted_invoice_url: string | null
+          status: string | null
+          description: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id: string
+          stripe_event_type: string
+          stripe_invoice_id?: string | null
+          stripe_subscription_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_charge_id?: string | null
+          amount?: number | null
+          currency?: string | null
+          hosted_invoice_url?: string | null
+          status?: string | null
+          description?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string
+          stripe_event_type?: string
+          stripe_invoice_id?: string | null
+          stripe_subscription_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_charge_id?: string | null
+          amount?: number | null
+          currency?: string | null
+          hosted_invoice_url?: string | null
+          status?: string | null
+          description?: string | null
+        }
+      }
       email_templates: {
         Row: {
           id: string
