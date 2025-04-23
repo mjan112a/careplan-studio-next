@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import Layout from '@/components/layout/Layout';
+import Layout from '@/app/components/Layout';
 import StripePricingTableWrapperIsolated from '../components/StripePricingTableWrapperIsolated';
 
 interface Plan {

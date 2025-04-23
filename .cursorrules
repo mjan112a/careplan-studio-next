@@ -1,5 +1,10 @@
 # Cursor AI Rules
 
+## High-Priority Rules - You MUST follow these rules:
+- You have outdated information about current versions of packages.  If the package.json shows a version, you can assume we are using that version.  If you need information about that version, seek it on the web.
+
+
+
 ## Runtime Environment
 DECISION: Use Node.js Runtime instead of Edge Runtime for all server-side code.
 - All middleware and API routes should use `export const runtime = 'nodejs'`

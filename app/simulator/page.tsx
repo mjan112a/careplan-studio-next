@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import FinancialSimulator from "../../financial-simulator";
 import { supabase } from '@/utils/supabase';
 import { User } from '@supabase/supabase-js';
-import Navbar from '@/components/layout/Navbar';
+import Layout from '@/app/components/Layout';
 
 export default function SimulatorPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -45,12 +45,9 @@ export default function SimulatorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="container mx-auto p-4">
-        <FinancialSimulator />
-      </main>
-    </div>
+    <Layout>
+      <FinancialSimulator />
+    </Layout>
   );
 }
 

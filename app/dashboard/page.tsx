@@ -1,138 +1,29 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Layout from '@/components/layout/Layout';
-import { supabase } from '@/utils/supabase';
-import { User } from '@supabase/supabase-js';
-import type { Database } from '@/types/supabase';
-import { getSession, recoverFromAuthError } from '@/utils/auth-state';
-import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
-import { Button } from '@/components/ui/button';
-import { 
-  BarChart2, 
-  FileText, 
-  Settings, 
-  Upload, 
-  Users, 
-  LogOut,
-  Plus,
-  ChevronRight
-} from 'lucide-react';
+import Layout from '@/app/components/Layout';
+import { BarChart2, FileText, Settings, Upload, Users, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { createServerSupabaseClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logging';
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
+export const dynamic = 'force-dynamic';
 
-export default function Dashboard() {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        // Add a small delay to ensure auth state has propagated
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Get session first to ensure we have valid auth state
-        logger.info('Dashboard: Loading session');
-        const session = await getSession();
-        logger.info('Dashboard: Session state', { 
-          hasSession: !!session,
-          userId: session?.user?.id
-        });
-        
-        if (!session?.user) {
-          logger.warn('Dashboard: No session found, redirecting to root');
-          router.push('/');
-          return;
-        }
-        setUser(session.user);
-
-        // Get user profile
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profileError) {
-          throw new AuthError(
-            'Failed to fetch profile',
-            AuthErrorCodes.SESSION_ERROR,
-            profileError
-          );
-        }
-        setProfile(profile);
-      } catch (error) {
-        logger.error('Dashboard load failed', { error, context: 'Dashboard-loadDashboard' });
-        
-        if (error instanceof AuthError) {
-          if (error.code === AuthErrorCodes.REFRESH_TOKEN_ERROR) {
-            // Try to recover the session
-            try {
-              await recoverFromAuthError();
-              // If recovery successful, reload the dashboard
-              loadDashboard();
-              return;
-            } catch (recoveryError) {
-              // If recovery fails, redirect to root
-              router.push('/');
-              return;
-            }
-          }
-        }
-        
-        // For other errors, redirect to root
-        router.push('/');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
-  }, [router]);
-
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      router.push('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        </div>
-      </Layout>
-    );
+export default async function Dashboard() {
+  // Get the authenticated user
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error) {
+    logger.error('Error getting user in dashboard', {
+      error: error.message,
+      stack: error.stack
+    });
   }
 
   return (
-    <Layout>
+    <Layout user={user}>
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="px-4 py-6 sm:px-0 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-              {profile && (
-                <p className="text-gray-600 mt-1">Welcome, {profile.full_name || user?.email}</p>
-              )}
-            </div>
-            <Button variant="outline" onClick={handleSignOut} className="flex items-center">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
+          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
         </div>
 
         {/* Quick Actions */}

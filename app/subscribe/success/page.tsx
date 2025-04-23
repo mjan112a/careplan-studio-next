@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import Layout from '@/components/layout/Layout';
+import Layout from '@/app/components/Layout';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 

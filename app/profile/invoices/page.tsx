@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Layout from '@/components/layout/Layout';
+import Layout from '@/app/components/Layout';
 import { format } from 'date-fns';
 import Link from 'next/link';
 

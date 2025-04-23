@@ -1,6 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/types/supabase'
 import { logger } from '@/lib/logging'
+import { getCookieOptions } from '@/lib/supabase/cookies'
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL')
@@ -14,12 +15,7 @@ export const supabase = createBrowserClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   {
-    cookieOptions: {
-      name: 'sb-token',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    }
+    cookieOptions: getCookieOptions(false)  // false for client-side
   }
 )
 

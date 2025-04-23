@@ -11,6 +11,8 @@
  * @see README.md for usage examples
  */
 
+export const runtime = 'nodejs';
+
 import chalk from 'chalk';
 import { format as formatDate } from 'date-fns';
 import { 
