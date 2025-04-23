@@ -1,57 +1,71 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createServerSupabaseClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logging';
+import type { Database } from '@/types/supabase';
+
+export const runtime = 'nodejs';
+
+type InvoiceData = {
+  stripe_invoice_id: string | null;
+  created_at: string;
+  amount: number | null;
+  currency: string | null;
+  hosted_invoice_url: string | null;
+  stripe_subscription_id: string | null;
+  stripe_customer_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_charge_id: string | null;
+};
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ 
-      cookies: () => cookies()
-    });
-
-    // Get the user from the session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const supabase = await createServerSupabaseClient();
     
-    // Log session information
-    logger.info('Invoices API request', {
-      hasSession: !!session,
-      userId: session?.user?.id,
-      userEmail: session?.user?.email,
-      sessionError: sessionError?.message
-    });
-
-    if (sessionError) {
-      logger.error('Session error in invoices API', { error: sessionError });
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    if (!session) {
-      logger.warn('No session found in invoices API');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Get user ID from authenticated session (middleware ensures this exists)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (!user) {
+      logger.error('No user found in authenticated session');
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 401 }
+      );
     }
 
-    // Fetch invoices
+    // Fetch invoices using the user's ID string
     const { data: invoices, error: invoicesError } = await supabase
       .from('user_stripe_history')
       .select('stripe_invoice_id, created_at, amount, currency, hosted_invoice_url, stripe_subscription_id, stripe_customer_id, stripe_payment_intent_id, stripe_charge_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .eq('stripe_event_type', 'invoice.paid')
       .order('created_at', { ascending: false });
 
     // Log query results
-    logger.info('Invoices query results', {
-      userId: session.user.id,
+    logger.debug('Invoices query results', {
+      userId: user.id,
       invoiceCount: invoices?.length || 0,
       hasError: !!invoicesError,
       error: invoicesError?.message
     });
 
     if (invoicesError) {
-      logger.error('Error fetching invoices', { error: invoicesError });
-      return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 });
+      logger.error('Error fetching invoices', { 
+        error: invoicesError,
+        userId: user.id,
+        context: {
+          message: invoicesError.message,
+          code: invoicesError.code,
+          details: invoicesError.details
+        }
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch invoices' }, 
+        { status: 500 }
+      );
     }
 
     // Transform the data
-    const transformedInvoices = (invoices || []).map(invoice => ({
+    const transformedInvoices = (invoices || []).map((invoice: InvoiceData) => ({
       invoice_id: invoice.stripe_invoice_id,
       invoice_date: invoice.created_at,
       amount: invoice.amount,
@@ -65,7 +79,13 @@ export async function GET() {
 
     return NextResponse.json({ invoices: transformedInvoices });
   } catch (error) {
-    logger.error('Error in invoices API', { error });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logger.error('Error in invoices API', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return NextResponse.json(
+      { error: 'Internal server error' }, 
+      { status: 500 }
+    );
   }
 } 

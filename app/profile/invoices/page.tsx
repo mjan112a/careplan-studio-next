@@ -1,10 +1,13 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { createServerSupabaseClient } from '@/lib/supabase/client';
 import Layout from '@/app/components/Layout';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { logger } from '@/lib/logging';
+import { headers } from 'next/headers';
+import { getBaseUrl } from '@/utils/url';
+
+export const runtime = 'nodejs';
 
 interface Invoice {
   invoice_id: string;
@@ -18,66 +21,34 @@ interface Invoice {
   charge_id: string;
 }
 
-export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+async function InvoicesContent() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      try {
-        const response = await fetch('/api/invoices');
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.push('/');
-            return;
-          }
-          throw new Error('Failed to fetch invoices');
-        }
+  try {
+    // Get the base URL and auth cookie from the headers
+    const headersList = await headers();
+    const baseUrl = await getBaseUrl(headersList);
 
-        const data = await response.json();
-        setInvoices(data.invoices || []);
-      } catch (error) {
-        console.error('Error fetching invoices:', error);
-        setError('Failed to load invoices. Please try again later.');
-      } finally {
-        setLoading(false);
+    const response = await fetch(`${baseUrl}/api/invoices`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: headersList.get('cookie') || ''
       }
-    };
+    });
 
-    fetchInvoices();
-  }, [router]);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch invoices: ${response.statusText}`);
+    }
 
-  if (loading) {
+    const data = await response.json();
+    const invoices = data.invoices || [];
+
+    logger.info('Fetched invoices', { count: invoices.length });
+
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      </Layout>
-    );
-  }
-
-  return (
-    <Layout>
-      <div className="max-w-6xl mx-auto py-8 px-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Your Invoices</h1>
-          <Link 
-            href="/profile" 
-            className="text-blue-600 hover:text-blue-800"
-          >
-            Back to Profile
-          </Link>
-        </div>
-
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
+      <>
         {invoices.length === 0 ? (
           <div className="bg-gray-100 p-6 rounded-lg text-center">
             <p className="text-gray-600">You don't have any invoices yet.</p>
@@ -95,7 +66,7 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((invoice) => (
+                {invoices.map((invoice: Invoice) => (
                   <tr key={invoice.invoice_id} className="border-t border-gray-200 hover:bg-gray-50">
                     <td className="py-3 px-4">
                       {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}
@@ -107,7 +78,7 @@ export default function InvoicesPage() {
                       {new Intl.NumberFormat('en-US', {
                         style: 'currency',
                         currency: invoice.currency || 'USD',
-                      }).format(invoice.amount)}
+                      }).format(invoice.amount / 100)} {/* Amount is in cents */}
                     </td>
                     <td className="py-3 px-4">
                       <span className="font-mono text-sm">{invoice.subscription_id}</span>
@@ -130,6 +101,47 @@ export default function InvoicesPage() {
             </table>
           </div>
         )}
+      </>
+    );
+  } catch (error) {
+    logger.error('Error fetching invoices', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    return (
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+        <p className="font-bold">Error</p>
+        <p>Failed to load invoices. Please try again later.</p>
+      </div>
+    );
+  }
+}
+
+export default async function InvoicesPage() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  return (
+    <Layout user={user}>
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Your Invoices</h1>
+          <Link 
+            href="/profile" 
+            className="text-blue-600 hover:text-blue-800"
+          >
+            Back to Profile
+          </Link>
+        </div>
+
+        <Suspense fallback={
+          <div className="flex items-center justify-center min-h-[200px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        }>
+          <InvoicesContent />
+        </Suspense>
       </div>
     </Layout>
   );
