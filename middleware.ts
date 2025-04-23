@@ -4,6 +4,8 @@ import type { NextRequest } from 'next/server';
 import { logger } from '@/lib/logging';
 import { getCookieOptions } from '@/lib/supabase/cookies';
 
+export const runtime = 'nodejs';
+
 export async function middleware(req: NextRequest) {
   logger.info('Middleware request', {
     path: req.nextUrl.pathname,
@@ -101,7 +103,21 @@ export async function middleware(req: NextRequest) {
   // Get authenticated user directly from Supabase Auth server
   let user = null;
   try {
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const { data: { user: authUser }, error } = await supabase.auth.getUser();
+    logger.debug('Auth user', { authUser, error })
+    // If there's an auth error or no user, and we're not on a public path, redirect
+    if ((error || !authUser) && !isPublicPath) {
+      logger.info('Auth check failed, redirecting to sign in', {
+        error: error?.message || 'No user found',
+        from: req.nextUrl.pathname,
+        isPublicPath
+      });
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = '/auth/signin';
+      redirectUrl.searchParams.set('redirect', req.nextUrl.pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+    
     user = authUser;
     logger.debug('Auth state', {
       path: req.nextUrl.pathname,
@@ -110,7 +126,7 @@ export async function middleware(req: NextRequest) {
       isPublicPath
     });
   } catch (error) {
-    // Only log actual errors (network issues, malformed tokens etc)
+    // Only log actual errors (network issues etc)
     logger.error('Error getting authenticated user', { 
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
@@ -141,7 +157,16 @@ export async function middleware(req: NextRequest) {
     });
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = '/auth/signin';
-    redirectUrl.searchParams.set('redirect', req.nextUrl.pathname);
+    
+    // If this is an API route being redirected, get the referrer page path
+    // or strip /api from the path to get the original page path
+    let redirectPath = req.nextUrl.pathname;
+    if (redirectPath.startsWith('/api/')) {
+      redirectPath = req.headers.get('referer')?.replace(req.nextUrl.origin, '') || 
+                    redirectPath.replace('/api', '');
+    }
+    
+    redirectUrl.searchParams.set('redirect', redirectPath);
     return NextResponse.redirect(redirectUrl);
   }
 

@@ -1,62 +1,40 @@
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import Layout from '@/app/components/Layout';
-import ProfileForm from './ProfileForm';
-import { logger } from '@/lib/logging';
+import { logger } from '@/lib/logging'
+import { headers } from 'next/headers'
+import { getBaseUrl } from '@/utils/url'
+
+export const runtime = 'nodejs'
 
 export default async function ProfilePage() {
-  const cookieStore = cookies();
-  
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string) {
-          logger.debug('Cookie set attempted in Server Component', { name });
-        },
-        remove(name: string) {
-          logger.debug('Cookie removal attempted in Server Component', { name });
-        },
-      },
+  try {
+    // Get the base URL and auth cookie from the headers
+    const headersList = await headers()
+    const baseUrl = await getBaseUrl(headersList)
+    
+    const response = await fetch(`${baseUrl}/api/profile`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: headersList.get('cookie') || ''
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch profile: ${response.statusText}`)
     }
-  );
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError) {
-    logger.error('Error fetching user', { error: userError });
-    throw userError;
-  }
+    const profile = await response.json()
 
-  if (!user) {
-    return {
-      redirect: {
-        destination: '/auth/signin',
-        permanent: false,
-      },
-    };
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError) {
-    logger.error('Error fetching profile', { error: profileError });
-    throw profileError;
-  }
-
-  return (
-    <Layout user={user}>
-      <div className="max-w-2xl mx-auto py-8 px-4">
-        <h1 className="text-2xl font-bold mb-8">Profile Settings</h1>
-        <ProfileForm user={user} initialProfile={profile} />
+    return (
+      <div>
+        <h1>Profile</h1>
+        <pre>{JSON.stringify(profile, null, 2)}</pre>
       </div>
-    </Layout>
-  );
+    )
+  } catch (error) {
+    logger.error('Error in profile page:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
+    return <div>Error loading profile</div>
+  }
 } 

@@ -3,6 +3,10 @@
 ## High-Priority Rules - You MUST follow these rules:
 - You have outdated information about current versions of packages.  If the package.json shows a version, you can assume we are using that version.  If you need information about that version, seek it on the web.
 
+## Authentication
+We are using supabase for Authentication
+We are using supabase 'ssr' everywhere
+We are NOT using supabase 'auth-helpers-nextjs'.
 
 
 ## Runtime Environment
