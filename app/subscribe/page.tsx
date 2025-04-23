@@ -1,70 +1,28 @@
-'use client';
-
-import { useState, useEffect, Suspense } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import { Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'react-hot-toast';
+import { createServerSupabaseClient } from '@/lib/supabase/client';
 import Layout from '@/app/components/Layout';
+import { logger } from '@/lib/logging';
 import StripePricingTableWrapperIsolated from '../components/StripePricingTableWrapperIsolated';
 
-interface Plan {
-  id: string;
-  amount: number;
-  interval: string;
-  description: string;
-  features: string[];
-}
+export const runtime = 'nodejs';
 
-// Component that uses useSearchParams
-function SubscribePageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  // Set mounted state after initial render
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+async function SubscribeContent() {
   // Check for test keys
-  useEffect(() => {
-    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-    if (publishableKey?.includes('_test_')) {
-      console.warn('⚠️ Using Stripe test keys - This is a test environment');
-    }
-  }, []);
-
-  // Handle redirect after authentication
-  useEffect(() => {
-    const redirectedFrom = searchParams.get('redirectedFrom');
-    if (redirectedFrom === '/subscribe') {
-      toast.success('Welcome back! You can now view our subscription plans.');
-    }
-  }, [searchParams]);
-
-  // If not mounted yet, show nothing to prevent hydration issues
-  if (!mounted) {
-    return null;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nt-blue mx-auto"></div>
-            <p className="mt-4 text-nt-gray">Loading subscription plans...</p>
-          </div>
-        </div>
-      </div>
-    );
+  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (publishableKey?.includes('_test_')) {
+    logger.warn('Using Stripe test keys', { environment: 'test' });
   }
 
   return (
     <div className="container mx-auto px-4 max-w-4xl">
+      {publishableKey?.includes('_test_') && (
+        <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-yellow-800 font-medium">⚠️ Test Environment</p>
+          <p className="text-yellow-700 text-sm">Using Stripe test keys - No real charges will be made</p>
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold mb-8">Subscription Plans</h1>
       
       <Card className="border-0 shadow-nt-lg bg-white/80 backdrop-blur">
@@ -84,10 +42,12 @@ function SubscribePageContent() {
   );
 }
 
-// Main component that wraps the content in Suspense and Layout
-export default function SubscribePage() {
+export default async function SubscribePage() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
-    <Layout>
+    <Layout user={user}>
       <Suspense fallback={
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="flex justify-center items-center h-64">
@@ -98,7 +58,7 @@ export default function SubscribePage() {
           </div>
         </div>
       }>
-        <SubscribePageContent />
+        <SubscribeContent />
       </Suspense>
     </Layout>
   );
