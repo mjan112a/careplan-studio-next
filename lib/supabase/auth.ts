@@ -1,8 +1,8 @@
 import { User, Session } from '@supabase/supabase-js';
-import { createComponentClient, createServerClient } from './client';
 import { logger } from '@/lib/logging';
 import { Database } from '@/types/supabase';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getBaseUrl } from '@/utils/url';
+import { supabase } from '@/utils/supabase';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Tables = Database['public']['Tables'];
@@ -24,7 +24,6 @@ export class AuthService {
    */
   static async getSession(): Promise<Session | null> {
     try {
-      const supabase = createComponentClient();
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -79,7 +78,6 @@ export class AuthService {
    */
   static async signInWithPassword(email: string, password: string): Promise<Session> {
     try {
-      const supabase = createComponentClient();
       const { data: { session }, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -114,7 +112,6 @@ export class AuthService {
     data?: { full_name?: string } 
   }): Promise<void> {
     try {
-      const supabase = createComponentClient();
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -136,7 +133,6 @@ export class AuthService {
    */
   static async signOut(): Promise<void> {
     try {
-      const supabase = createComponentClient();
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -154,9 +150,9 @@ export class AuthService {
    */
   static async resetPassword(email: string): Promise<void> {
     try {
-      const supabase = createComponentClient();
+      const baseUrl = typeof window !== 'undefined' ? getBaseUrl() : '';
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
+        redirectTo: `${baseUrl}/auth/update-password`,
       });
 
       if (error) {
@@ -173,7 +169,6 @@ export class AuthService {
    * Initialize auth state change listener
    */
   static initializeAuthListener(callback: (event: string, session: Session | null) => void): () => void {
-    const supabase = createComponentClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(callback);
     return () => subscription.unsubscribe();
   }

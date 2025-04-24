@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
 import { logger } from '@/lib/logging';
 import { withRetry } from '@/utils/auth_retry';
+import { getBaseUrl } from '@/utils/url';
 
 interface AuthFormProps {
   mode: 'signin' | 'signup' | 'reset';
@@ -136,8 +137,9 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
       } else if (mode === 'reset') {
         await withRetry(async () => {
           logger.info('Attempting password reset', { email });
+          const baseUrl = typeof window !== 'undefined' ? getBaseUrl() : '';
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/auth/update-password`,
+            redirectTo: `${baseUrl}/auth/update-password`,
           });
           if (error) {
             logger.error('Password reset failed', { error: error.message });
