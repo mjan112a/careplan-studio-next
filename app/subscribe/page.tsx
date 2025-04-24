@@ -9,38 +9,63 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function SubscribeContent() {
-  // Check for test keys
-  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-  if (publishableKey?.includes('_test_')) {
-    logger.warn('Using Stripe test keys', { environment: 'test' });
-  }
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  return (
-    <div className="container mx-auto px-4 max-w-4xl">
-      {publishableKey?.includes('_test_') && (
-        <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-yellow-800 font-medium">⚠️ Test Environment</p>
-          <p className="text-yellow-700 text-sm">Using Stripe test keys - No real charges will be made</p>
+    if (!user) {
+      logger.error('No user found in authenticated session');
+      return <div>Error: Not authenticated</div>;
+    }
+
+    // Check for test keys
+    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    if (publishableKey?.includes('_test_')) {
+      logger.warn('Using Stripe test keys', { environment: 'test' });
+    }
+
+    return (
+      <div className="container mx-auto px-4 max-w-4xl">
+        {publishableKey?.includes('_test_') && (
+          <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 font-medium">⚠️ Test Environment</p>
+            <p className="text-yellow-700 text-sm">Using Stripe test keys - No real charges will be made</p>
+          </div>
+        )}
+
+        <h1 className="text-2xl font-bold mb-8">Subscription Plans</h1>
+        
+        <Card className="border-0 shadow-nt-lg bg-white/80 backdrop-blur">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-3xl font-bold text-center text-nt-gray">
+              Choose Your Perfect Plan
+            </CardTitle>
+            <CardDescription className="text-center text-lg text-nt-gray/70">
+              Select the plan that best fits your needs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            <StripePricingTableWrapperIsolated 
+              userId={user.id} 
+              userEmail={user.email || null} 
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  } catch (error) {
+    logger.error('Error in subscribe page:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return (
+      <div className="container mx-auto px-4 max-w-4xl">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          Error loading subscription plans
         </div>
-      )}
-
-      <h1 className="text-2xl font-bold mb-8">Subscription Plans</h1>
-      
-      <Card className="border-0 shadow-nt-lg bg-white/80 backdrop-blur">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-3xl font-bold text-center text-nt-gray">
-            Choose Your Perfect Plan
-          </CardTitle>
-          <CardDescription className="text-center text-lg text-nt-gray/70">
-            Select the plan that best fits your needs
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          <StripePricingTableWrapperIsolated />
-        </CardContent>
-      </Card>
-    </div>
-  );
+      </div>
+    );
+  }
 }
 
 export default async function SubscribePage() {

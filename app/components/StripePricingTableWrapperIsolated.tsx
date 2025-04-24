@@ -1,27 +1,19 @@
 'use client';
 
-import { useEffect, useState, Suspense, useRef } from 'react';
+import { useEffect, useState, memo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/utils/supabase';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logging';
 
-// Dynamically import the StripePricingTableIsolated component with no SSR
-const StripePricingTableIsolated = dynamic(
+// Use memo to prevent unnecessary re-renders of the dynamic component
+const StripePricingTableIsolated = memo(dynamic(
   () => import('./StripePricingTableIsolated'),
   { 
     ssr: false,
-    loading: () => (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nt-blue mx-auto"></div>
-          <p className="mt-4 text-nt-gray">Loading subscription plans...</p>
-        </div>
-      </div>
-    )
+    loading: () => null // Use the suspense fallback instead
   }
-);
+));
 
 interface StripePricingTableWrapperIsolatedProps {
   userId?: string | null;
@@ -33,102 +25,24 @@ export default function StripePricingTableWrapperIsolated({
   userEmail = null 
 }: StripePricingTableWrapperIsolatedProps) {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [localUserId, setLocalUserId] = useState<string | null>(userId);
-  const [localUserEmail, setLocalUserEmail] = useState<string | null>(userEmail);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const initAttempted = useRef(false);
-
-  // Set mounted state after initial render
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const isAuthenticated = Boolean(userId);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-    
-    const checkAuth = async () => {
-      // Skip if we've already attempted initialization
-      if (initAttempted.current) return;
-      
-      try {
-        // Reset loading state when starting a new check
-        if (isMounted) {
-          setIsLoading(true);
-        }
-        
-        // If userId and userEmail are provided as props, use them
-        if (userId && userEmail) {
-          if (isMounted) {
-            setLocalUserId(userId);
-            setLocalUserEmail(userEmail);
-            setIsAuthenticated(true);
-            setIsLoading(false);
-            setAuthChecked(true);
-          }
-          return;
-        }
-        
-        // Otherwise, fetch from Supabase
-        const { data: { session } } = await supabase.auth.getSession();
-        if (isMounted) {
-          if (session?.user) {
-            setLocalUserId(session.user.id);
-            setLocalUserEmail(session.user.email || null);
-            setIsAuthenticated(true);
-          } else {
-            setIsAuthenticated(false);
-          }
-          setIsLoading(false);
-          setAuthChecked(true);
-        }
-      } catch (error) {
-        logger.error('Error checking authentication', { error });
-        if (isMounted) {
-          setIsLoading(false);
-          setAuthChecked(true);
-        }
-      } finally {
-        // Mark initialization as attempted
-        initAttempted.current = true;
+    // Only log once per component mount
+    if (!isInitialized) {
+      if (userId) {
+        logger.info('Initializing Stripe pricing table for authenticated user', { userId });
+      } else {
+        logger.info('Initializing Stripe pricing table for unauthenticated user');
       }
-    };
-
-    // Only run the check if we're mounted
-    if (mounted) {
-      checkAuth();
+      setIsInitialized(true);
     }
-    
-    // Cleanup function to prevent state updates after unmount
-    return () => {
-      isMounted = false;
-    };
-  }, [userId, userEmail, authChecked, mounted]);
-
-  // Reset initialization when component is remounted
-  useEffect(() => {
-    return () => {
-      initAttempted.current = false;
-    };
-  }, []);
+  }, [userId, isInitialized]);
 
   const handleSignUp = () => {
     router.push('/auth/signup?redirectedFrom=/subscribe');
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nt-blue mx-auto"></div>
-          <p className="mt-4 text-nt-gray">Loading subscription plans...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
@@ -137,13 +51,13 @@ export default function StripePricingTableWrapperIsolated({
           <div className="flex justify-center items-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nt-blue mx-auto"></div>
-              <p className="mt-4 text-nt-gray">Loading subscription plans...</p>
+              <p className="mt-4 text-nt-gray">Loading subscription plans...WW</p>
             </div>
           </div>
         }>
           <StripePricingTableIsolated 
-            userId={localUserId} 
-            userEmail={localUserEmail} 
+            userId={userId} 
+            userEmail={userEmail} 
           />
         </Suspense>
         
