@@ -75,6 +75,13 @@ export default function Navbar({ user }: NavbarProps) {
                       Your Invoices
                     </Link>
                     <Link
+                      href="/prompts"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Prompts
+                    </Link>
+                    <Link
                       href="/subscribe"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsMenuOpen(false)}
