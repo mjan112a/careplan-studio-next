@@ -1,7 +1,7 @@
 import { User, Session } from '@supabase/supabase-js';
 import { logger } from '@/lib/logging';
 import { Database } from '@/types/supabase';
-import { getBaseUrl } from '@/utils/url';
+import { getAppURL } from '@/utils/url';
 import { supabase } from '@/utils/supabase';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -150,9 +150,11 @@ export class AuthService {
    */
   static async resetPassword(email: string): Promise<void> {
     try {
-      const baseUrl = typeof window !== 'undefined' ? getBaseUrl() : '';
+      const appUrl = getAppURL();
+      logger.debug('Reset password using URL', { appUrl });
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${baseUrl}/auth/update-password`,
+        redirectTo: `${appUrl}/auth/update-password`,
       });
 
       if (error) {

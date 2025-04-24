@@ -68,4 +68,30 @@ function getBaseUrlFromHeaders(headers?: Headers | ReadonlyHeaders): string {
   
   logger.debug('Using fallback URL:', { fallbackUrl });
   return fallbackUrl;
+}
+
+/**
+ * Gets the application URL in a simplified way that works for both client and server side
+ * On client side: Uses window.location.origin
+ * On server side: Uses Vercel URL environment variables or falls back to APP_URL or localhost
+ */
+export function getAppURL(): string {
+  // For client-side, use the current URL
+  if (typeof window !== 'undefined') {
+    const url = window.location.origin;
+    logger.debug('Client-side, using window.location.origin:', { url });
+    return url;
+  }
+  
+  // For server-side rendering, handle different environments
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) {
+    const url = `https://${vercelUrl}`;
+    logger.debug('Server-side with Vercel URL:', { url });
+    return url;
+  }
+  
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  logger.debug('Server-side with fallback URL:', { appUrl });
+  return appUrl;
 } 
