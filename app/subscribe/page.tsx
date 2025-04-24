@@ -6,6 +6,7 @@ import { logger } from '@/lib/logging';
 import StripePricingTableWrapperIsolated from '../components/StripePricingTableWrapperIsolated';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 async function SubscribeContent() {
   // Check for test keys

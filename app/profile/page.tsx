@@ -1,11 +1,11 @@
 import { logger } from '@/lib/logging'
-import { headers } from 'next/headers'
-import { getBaseUrl } from '@/utils/url'
 import { createServerSupabaseClient } from '@/lib/supabase/client'
 import ProfileForm from './ProfileForm'
 import Navbar from '@/components/layout/Navbar'
+import { fetchWithAuth } from '@/lib/api'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export default async function ProfilePage() {
   try {
@@ -17,23 +17,7 @@ export default async function ProfilePage() {
       return <div>Error: Not authenticated</div>
     }
 
-    // Get the base URL and auth cookie from the headers
-    const headersList = await headers()
-    const baseUrl = await getBaseUrl(headersList)
-    
-    const response = await fetch(`${baseUrl}/api/profile`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: headersList.get('cookie') || ''
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch profile: ${response.statusText}`)
-    }
-
-    const profile = await response.json()
+    const profile = await fetchWithAuth('/api/profile')
 
     return (
       <>

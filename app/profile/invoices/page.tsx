@@ -4,10 +4,10 @@ import Layout from '@/app/components/Layout';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { logger } from '@/lib/logging';
-import { headers } from 'next/headers';
-import { getBaseUrl } from '@/utils/url';
+import { fetchWithAuth } from '@/lib/api';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 interface Invoice {
   invoice_id: string;
@@ -26,23 +26,7 @@ async function InvoicesContent() {
   const { data: { user } } = await supabase.auth.getUser();
 
   try {
-    // Get the base URL and auth cookie from the headers
-    const headersList = await headers();
-    const baseUrl = await getBaseUrl(headersList);
-
-    const response = await fetch(`${baseUrl}/api/invoices`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: headersList.get('cookie') || ''
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch invoices: ${response.statusText}`);
-    }
-
-    const data = await response.json();
+    const data = await fetchWithAuth<{ invoices: Invoice[] }>('/api/invoices');
     const invoices = data.invoices || [];
 
     logger.info('Fetched invoices', { count: invoices.length });
