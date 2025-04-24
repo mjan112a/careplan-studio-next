@@ -1,17 +1,10 @@
-import Handlebars from '@/lib/handlebars-wrapper';
+import Handlebars from 'handlebars';
 import { logger } from '@/lib/logging';
-
-// We're importing the already created instance, so we don't need to create() again
-// const Handlebars = create();
 
 interface RenderOptions {
   template: string;
   replacements: Record<string, any>;
   warnOnMissing?: boolean;
-}
-
-interface HelperContext {
-  name: string;
 }
 
 // Helper to extract variable names from a template

@@ -31,7 +31,7 @@ const nextConfig = {
     // Handle Handlebars require.extensions issue
     config.resolve.alias = {
       ...config.resolve.alias,
-      handlebars: 'handlebars/dist/handlebars.min.js',
+      handlebars: 'handlebars/dist/handlebars.js',
     };
     
     return config;
