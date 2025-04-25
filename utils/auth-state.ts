@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
-import { withRetry } from './retry';
 import { logger } from '@/lib/logging';
 
 // Simple function to get session without caching

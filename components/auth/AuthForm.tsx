@@ -7,7 +7,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthError, AuthErrorCodes } from '@/types/auth-errors';
 import { logger } from '@/lib/logging';
 import { withRetry } from '@/utils/auth_retry';
-import { getAppURL } from '@/utils/url';
+import { getAppURL, getBaseUrl } from '@/utils/url';
 
 interface AuthFormProps {
   mode: 'signin' | 'signup' | 'reset';
@@ -167,14 +167,14 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
         });
       } else if (mode === 'reset') {
         await withRetry(async () => {
-          logger.info('Attempting password reset', { email });
           // Use getAppURL to ensure we get the correct URL for the current environment
-          const appUrl = getAppURL();
+          const baseUrl = getBaseUrl();
+          logger.info('Attempting password reset', { email, baseUrl });
           
           // Enhanced logging for debugging the redirect URL
-          const redirectUrl = `${appUrl}/auth/update-password`;
-          logger.debug('Reset password redirect details', { 
-            appUrl, 
+          const redirectUrl = `${baseUrl}/auth/update-password`;
+          logger.info('Reset password redirect details', { 
+            baseUrl, 
             redirectUrl,
             nodeEnv: process.env.NODE_ENV,
             isClient: typeof window !== 'undefined',
@@ -184,7 +184,7 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
           });
           
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${appUrl}/auth/update-password`,
+            redirectTo: `${baseUrl}/auth/update-password`,
           });
           if (error) {
             logger.error('Password reset failed', { error: error.message });
