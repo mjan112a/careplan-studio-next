@@ -184,7 +184,7 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
           });
           
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${baseUrl}/auth/update-password`,
+            redirectTo: redirectUrl,
           });
           if (error) {
             logger.error('Password reset failed', { error: error.message });
