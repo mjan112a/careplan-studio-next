@@ -73,7 +73,13 @@ function getBaseUrlFromHeaders(headers?: Headers | ReadonlyHeaders): string {
 /**
  * Gets the application URL in a simplified way that works for both client and server side
  * On client side: Uses window.location.origin
- * On server side: Uses Vercel URL environment variables or falls back to APP_URL or localhost
+ * On server side: Uses environment variables in the following priority order:
+ * 1. For Vercel deployments: 
+ *    - VERCEL_URL (with https:// prefix)
+ *    - NEXT_PUBLIC_VERCEL_URL (with https:// prefix)
+ * 2. NEXT_PUBLIC_SITE_URL (for production)
+ * 3. NEXT_PUBLIC_APP_URL (for development)
+ * 4. Default localhost
  */
 export function getAppURL(): string {
   // For client-side, use the current URL
@@ -83,15 +89,26 @@ export function getAppURL(): string {
     return url;
   }
   
-  // For server-side rendering, handle different environments
-  const vercelUrl = process.env.VERCEL_URL;
+  // For Vercel deployments, prioritize Vercel environment variables
+  const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
   if (vercelUrl) {
+    // Vercel auto-sets VERCEL_URL without a protocol
     const url = `https://${vercelUrl}`;
-    logger.debug('Server-side with Vercel URL:', { url });
+    logger.debug('Vercel deployment detected, using URL:', { url });
     return url;
   }
   
+  // For production, use the explicitly set production URL
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) {
+    // Ensure it starts with https:// if not already
+    const url = siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`;
+    logger.debug('Using NEXT_PUBLIC_SITE_URL:', { url });
+    return url;
+  }
+  
+  // Fallback to development URL
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  logger.debug('Server-side with fallback URL:', { appUrl });
+  logger.debug('Using fallback URL:', { appUrl });
   return appUrl;
 } 

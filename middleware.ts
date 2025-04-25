@@ -29,6 +29,7 @@ export async function middleware(req: NextRequest) {
     '/auth/signin',  // Sign in page
     '/auth/signup',  // Sign up page
     '/auth/reset-password',  // Password reset page
+    '/auth/update-password', // Password update page
   ];
 
   const isPublicPath = PUBLIC_PATHS.some(path => 
@@ -174,7 +175,8 @@ export async function middleware(req: NextRequest) {
   if (user && (
     req.nextUrl.pathname === '/' || 
     req.nextUrl.pathname === '/home' ||
-    req.nextUrl.pathname.startsWith('/auth/')
+    (req.nextUrl.pathname.startsWith('/auth/') && 
+     req.nextUrl.pathname !== '/auth/update-password')  // Exception for update-password page
   )) {
     logger.info('Redirecting authenticated user to dashboard', {
       from: req.nextUrl.pathname,

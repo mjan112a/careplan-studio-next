@@ -25,6 +25,37 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get('redirectedFrom');
 
+  // Check for error parameters in URL
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    const errorCode = searchParams.get('error_code');
+    const errorDescription = searchParams.get('error_description');
+    
+    if (errorParam) {
+      logger.info('Error parameters detected in URL', { 
+        errorParam,
+        errorCode,
+        errorDescription 
+      });
+      
+      // Display a user-friendly error message
+      if (errorCode === 'otp_expired') {
+        setError('Your password reset link has expired. Please request a new link.');
+      } else if (errorDescription) {
+        // Properly decode the URL-encoded error description
+        try {
+          const decodedError = decodeURIComponent(errorDescription);
+          setError(decodedError);
+        } catch (e) {
+          // Fallback if decoding fails
+          setError(errorDescription.replace(/\+/g, ' '));
+        }
+      } else {
+        setError('An error occurred during authentication. Please try again.');
+      }
+    }
+  }, [searchParams]);
+
   // Check initial auth state
   useEffect(() => {
     const checkAuth = async () => {
@@ -139,7 +170,18 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
           logger.info('Attempting password reset', { email });
           // Use getAppURL to ensure we get the correct URL for the current environment
           const appUrl = getAppURL();
-          logger.debug('Reset password using URL', { appUrl });
+          
+          // Enhanced logging for debugging the redirect URL
+          const redirectUrl = `${appUrl}/auth/update-password`;
+          logger.debug('Reset password redirect details', { 
+            appUrl, 
+            redirectUrl,
+            nodeEnv: process.env.NODE_ENV,
+            isClient: typeof window !== 'undefined',
+            vercelUrl: process.env.VERCEL_URL,
+            publicVercelUrl: process.env.NEXT_PUBLIC_VERCEL_URL,
+            siteUrl: process.env.NEXT_PUBLIC_SITE_URL
+          });
           
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${appUrl}/auth/update-password`,
