@@ -182,7 +182,7 @@ function AuthFormWithParams({ mode }: AuthFormProps) {
             publicVercelUrl: process.env.NEXT_PUBLIC_VERCEL_URL,
             siteUrl: process.env.NEXT_PUBLIC_SITE_URL
           });
-          
+          /* remember that supabase has a URL whitelist for redirect URLs */
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: redirectUrl,
           });
