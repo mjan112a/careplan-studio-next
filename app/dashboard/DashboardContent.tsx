@@ -24,6 +24,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientList, Client } from '@/components/ClientList';
 import { NewClientForm } from '@/components/NewClientForm';
+import { PolicyUpload } from '@/components/PolicyUpload';
+import { PolicyList } from '@/components/PolicyList';
+import { ReviewDatasetTable } from '@/components/ReviewDatasetTable';
+import type { PolicyDocument } from '@/components/PolicyList';
 
 interface DashboardContentProps {
   user: User | null;
@@ -35,8 +39,10 @@ export default function DashboardContent({ user }: DashboardContentProps) {
   const [loadingClients, setLoadingClients] = useState(true);
   const [clientsError, setClientsError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [selectedPolicy, setSelectedPolicy] = useState('No policy selected');
+  const [policyWorkflowStage, setPolicyWorkflowStage] = useState<'upload' | 'process' | 'review'>('upload');
+  const [currentPolicy, setCurrentPolicy] = useState<any>(null); // Will type this more strictly later
   const [selectedDataset, setSelectedDataset] = useState('No dataset selected');
+  const [policyListRefreshFlag, setPolicyListRefreshFlag] = useState(0);
   
   // Fetch clients
   const refreshClients = async () => {
@@ -147,66 +153,49 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                       <FileText className="h-5 w-5 text-blue-600" />
                       <div className="flex-1 text-left">
                         <h2 className="text-lg font-medium text-gray-900">Policy Management</h2>
-                        <p className="text-sm text-gray-500">Current: {selectedPolicy}</p>
+                        <p className="text-sm text-gray-500">Guide: Upload → Process → Review</p>
                       </div>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pt-4 pb-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                      <button 
-                        onClick={() => setSelectedPolicy('Upload Policy')}
-                        className="block w-full text-left"
-                      >
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 transition-colors">
-                          <div className="flex items-center">
-                            <div className="bg-blue-100 p-2 rounded-full mr-4">
-                              <FileUp className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">Upload Policy</h3>
-                              <p className="text-sm text-gray-500">Upload a client policy document</p>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
-                          </div>
-                        </div>
-                      </button>
-                      
-                      <button 
-                        onClick={() => setSelectedPolicy('Process Documents')}
-                        className="block w-full text-left"
-                      >
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 transition-colors">
-                          <div className="flex items-center">
-                            <div className="bg-purple-100 p-2 rounded-full mr-4">
-                              <ClipboardCheck className="h-5 w-5 text-purple-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">Process Documents</h3>
-                              <p className="text-sm text-gray-500">Extract data from policies</p>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
-                          </div>
-                        </div>
-                      </button>
-                      
-                      <button 
-                        onClick={() => setSelectedPolicy('Review Datasets')}
-                        className="block w-full text-left"
-                      >
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 transition-colors">
-                          <div className="flex items-center">
-                            <div className="bg-amber-100 p-2 rounded-full mr-4">
-                              <FileCheck className="h-5 w-5 text-amber-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">Review Datasets</h3>
-                              <p className="text-sm text-gray-500">Review and approve tabular data</p>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
-                          </div>
-                        </div>
-                      </button>
+                    <div className="flex flex-col gap-6">
+                      {/* Upload Form */}
+                      <PolicyUpload
+                        currentClient={selectedClient}
+                        user={user ? { id: user.id } : { id: '' }}
+                        onDocumentsChanged={() => setPolicyListRefreshFlag(f => f + 1)}
+                      />
+                      {/* Policy List always visible below upload */}
+                      <PolicyList
+                        currentClient={selectedClient}
+                        onProcess={(policy: PolicyDocument) => {
+                          setCurrentPolicy(policy);
+                          setPolicyWorkflowStage('process');
+                          // Trigger processing logic here (show spinner, etc.)
+                        }}
+                        onReview={(policy: PolicyDocument) => {
+                          setCurrentPolicy(policy);
+                          setPolicyWorkflowStage('review');
+                        }}
+                        currentPolicy={currentPolicy}
+                        refreshFlag={policyListRefreshFlag}
+                      />
                     </div>
+                    {/* Review Dataset Table (only visible in review stage) */}
+                    {policyWorkflowStage === 'review' && currentPolicy && (
+                      <div className="mt-6">
+                        <div className="mb-4 flex items-center gap-4">
+                          <button
+                            className="text-blue-600 hover:underline"
+                            onClick={() => setPolicyWorkflowStage('upload')}
+                          >
+                            ← Back to Policy List
+                          </button>
+                          <div className="font-semibold text-lg">Reviewing: {currentPolicy.original_name}</div>
+                        </div>
+                        <ReviewDatasetTable policy={currentPolicy} />
+                      </div>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

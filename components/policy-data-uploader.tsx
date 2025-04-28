@@ -1,3 +1,5 @@
+// This component has been replaced by PolicyUpload. Remove or archive if not needed.
+
 "use client"
 
 import { useState } from "react"
