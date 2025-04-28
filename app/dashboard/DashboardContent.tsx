@@ -18,10 +18,12 @@ import {
   Clock
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ClientList, Client } from '@/components/ClientList';
+import { NewClientForm } from '@/components/NewClientForm';
 
 interface DashboardContentProps {
   user: User | null;
@@ -29,10 +31,36 @@ interface DashboardContentProps {
 
 export default function DashboardContent({ user }: DashboardContentProps) {
   // State to track current selections
-  const [selectedClient, setSelectedClient] = useState('No client selected');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [clientsError, setClientsError] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedPolicy, setSelectedPolicy] = useState('No policy selected');
   const [selectedDataset, setSelectedDataset] = useState('No dataset selected');
   
+  // Fetch clients
+  const refreshClients = async () => {
+    setLoadingClients(true);
+    setClientsError(null);
+    try {
+      const res = await fetch('/api/clients');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to fetch clients');
+      }
+      const data = await res.json();
+      setClients(data.clients);
+    } catch (err) {
+      setClientsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingClients(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshClients();
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Page title */}
@@ -72,47 +100,40 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                       <Users className="h-5 w-5 text-blue-600" />
                       <div className="flex-1 text-left">
                         <h2 className="text-lg font-medium text-gray-900">Client Management</h2>
-                        <p className="text-sm text-gray-500">Current: {selectedClient}</p>
+                        <p className="text-sm text-gray-500">
+                          Current: {selectedClient ? selectedClient.name : 'No client selected'}
+                        </p>
                       </div>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pt-4 pb-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                      <button 
-                        onClick={() => setSelectedClient('All Clients')}
-                        className="block w-full text-left"
-                      >
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 transition-colors">
-                          <div className="flex items-center">
-                            <div className="bg-blue-100 p-2 rounded-full mr-4">
-                              <Users className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">View Clients</h3>
-                              <p className="text-sm text-gray-500">Manage your client list</p>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
-                          </div>
-                        </div>
-                      </button>
-                      
-                      <button 
-                        onClick={() => setSelectedClient('New Client')}
-                        className="block w-full text-left"
-                      >
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 transition-colors">
-                          <div className="flex items-center">
-                            <div className="bg-green-100 p-2 rounded-full mr-4">
-                              <Users className="h-5 w-5 text-green-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">Add New Client</h3>
-                              <p className="text-sm text-gray-500">Create a new client record</p>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400 ml-auto" />
-                          </div>
-                        </div>
-                      </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Your Clients</h3>
+                        <ClientList
+                          clients={clients}
+                          loading={loadingClients}
+                          error={clientsError}
+                          currentClientId={selectedClient?.id}
+                          onSelect={client => setSelectedClient(client)}
+                          onDelete={client => {
+                            refreshClients();
+                            if (selectedClient && selectedClient.id === client.id) {
+                              setSelectedClient(null);
+                            }
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Add New Client</h3>
+                        <NewClientForm
+                          onCreated={client => {
+                            setSelectedClient(client);
+                            refreshClients();
+                          }}
+                          disabled={loadingClients}
+                        />
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
