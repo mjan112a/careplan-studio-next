@@ -7,7 +7,7 @@ import { CustomerSubscriptionStatus } from './stripe';
  */
 export async function fetchCustomerStatus(email: string): Promise<CustomerSubscriptionStatus> {
   try {
-    const response = await fetch('/api/customer-status', {
+    const response = await fetch('/api/subscribe/status', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

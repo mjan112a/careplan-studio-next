@@ -4,7 +4,7 @@ import { logger } from '@/lib/logging';
 
 /**
  * API route to check a customer's subscription status
- * POST /api/customer-status
+ * POST /api/subscribe/status
  * Body: { email: string }
  */
 export async function POST(request: NextRequest) {

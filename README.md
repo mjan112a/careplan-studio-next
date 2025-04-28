@@ -36,6 +36,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     - Supabase Dashboard > Authentication > Settings > Session Duration
     - Or via the Management API using the `updateConfig` endpoint
 
+## Unused API Endpoints
+
+The following API endpoints exist in the codebase but are currently unused:
+
+- `/api/subscribe/create`
+- `/api/subscribe/health`
+
+These endpoints are reserved for future use or integration.
+
 ## License
 
 MIT 
