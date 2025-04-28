@@ -310,6 +310,13 @@ export default function DashboardContent({ user }: DashboardContentProps) {
           
           {/* Review Tab Content */}
           <TabsContent value="review" className="p-6 space-y-6">
+            <div className="mb-4">
+              {selectedClient ? (
+                <div className="text-lg font-semibold text-blue-700">Current Client: {selectedClient.name}</div>
+              ) : (
+                <div className="text-lg text-gray-500">Select a Current Client in Prepare</div>
+              )}
+            </div>
             {/* Visualizations Section */}
             <Accordion type="single" collapsible defaultValue="visualizations" className="w-full border rounded-lg">
               <AccordionItem value="visualizations" className="border-none">
