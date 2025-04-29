@@ -17,7 +17,7 @@ export async function GET() {
       .from('clients')
       .select('id, name, description, status, user_id, created_at, updated_at')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
     logger.debug('Clients query results', {
       userId: user.id,
       clientCount: clients?.length || 0,

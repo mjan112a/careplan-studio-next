@@ -56,11 +56,31 @@ export default function DashboardContent({ user }: DashboardContentProps) {
       }
       const data = await res.json();
       setClients(data.clients);
+      // Auto-select the first client if none is selected
+      if ((!selectedClient || !data.clients.some((c: Client) => c.id === selectedClient.id)) && data.clients.length > 0) {
+        setSelectedClient(data.clients[0]);
+      }
     } catch (err) {
       setClientsError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingClients(false);
     }
+  };
+
+  // Handler to select a client and update its updated_at
+  const handleSelectClient = async (client: Client) => {
+    try {
+      await fetch(`/api/clients/${client.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updated_at: new Date().toISOString() })
+      });
+    } catch (err) {
+      // Ignore error, still select client
+    }
+    setSelectedClient(client);
+    // Optionally, refresh clients to update order
+    refreshClients();
   };
 
   useEffect(() => {
@@ -121,7 +141,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                           loading={loadingClients}
                           error={clientsError}
                           currentClientId={selectedClient?.id}
-                          onSelect={client => setSelectedClient(client)}
+                          onSelect={handleSelectClient}
                           onDelete={client => {
                             refreshClients();
                             if (selectedClient && selectedClient.id === client.id) {
