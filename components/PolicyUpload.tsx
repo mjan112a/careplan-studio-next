@@ -83,6 +83,7 @@ export const PolicyUpload: React.FC<PolicyUploadProps> = ({ currentClient, user,
         if (!res.ok) throw new Error('Failed to upload file');
         toast.success(`Uploaded ${file.name}`);
         setRefreshFlag(f => f + 1);
+        if (onDocumentsChanged) onDocumentsChanged();
       } catch (err) {
         toast.error(`Failed to upload ${file.name}`);
       }
