@@ -114,11 +114,11 @@ export default function DashboardContent({ user }: DashboardContentProps) {
       const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/policy-documents-processed/${policy.processed_path}`;
       const fileRes = await fetch(fileUrl);
       if (!fileRes.ok) throw new Error('Failed to fetch policy document');
-      const contentType = fileRes.headers.get('content-type') || 'application/octet-stream';
       const fileBlob = await fileRes.blob();
-      const fileWithType = new File([fileBlob], policy.original_name, { type: contentType });
+      // Use the file_type from the policy document as the MIME type
+      const fileWithType = new File([fileBlob], policy.original_name, { type: policy.file_type });
       logger.info('Policy document retrieved - details', {
-        contentType,
+        fileType: policy.file_type,
         fileBlob,
         fileWithType,
         policy
@@ -272,7 +272,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                           </button>
                           <div className="font-semibold text-lg">Reviewing: {currentPolicy.original_name}</div>
                         </div>
-                        <ReviewDatasetTable policy={currentPolicy} />
+                        <ReviewDatasetTable policy={currentPolicy} aiResult={aiResult} />
                         <PolicyReviewAIResult loading={aiLoading} error={aiError} result={aiResult} />
                       </div>
                     )}
