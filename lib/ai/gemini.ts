@@ -40,6 +40,12 @@ export class GeminiService implements IAIService {
         prompt,
         file: file ? { filename: file.filename, mimetype: file.mimetype } : undefined,
         model: this.modelName,
+        apiEndpoint: 'https://generativelanguage.googleapis.com',
+        apiVersion: 'v1beta',
+        requestPath: `/v1beta/${this.modelName}:generateContent`,
+        hasFile: !!file,
+        fileType: file?.mimetype,
+        fileName: file?.filename,
       });
 
       const model = this.client.getGenerativeModel({ model: this.modelName });

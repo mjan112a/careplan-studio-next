@@ -28,6 +28,9 @@ import { PolicyUpload } from '@/components/PolicyUpload';
 import { PolicyList } from '@/components/PolicyList';
 import { ReviewDatasetTable } from '@/components/ReviewDatasetTable';
 import type { PolicyDocument } from '@/components/PolicyList';
+import { PolicyReviewAIResult } from '@/components/PolicyReviewAIResult';
+import { renderPrompt } from '@/app/api/prompts/lib/render';
+import { logger } from '@/lib/logging';
 
 interface DashboardContentProps {
   user: User | null;
@@ -43,6 +46,9 @@ export default function DashboardContent({ user }: DashboardContentProps) {
   const [currentPolicy, setCurrentPolicy] = useState<any>(null); // Will type this more strictly later
   const [selectedDataset, setSelectedDataset] = useState('No dataset selected');
   const [policyListRefreshFlag, setPolicyListRefreshFlag] = useState(0);
+  const [aiResult, setAIResult] = useState<unknown>(null);
+  const [aiLoading, setAILoading] = useState(false);
+  const [aiError, setAIError] = useState<string | null>(null);
   
   // Fetch clients
   const refreshClients = async () => {
@@ -81,6 +87,63 @@ export default function DashboardContent({ user }: DashboardContentProps) {
     setSelectedClient(client);
     // Optionally, refresh clients to update order
     refreshClients();
+  };
+
+  // Handler to process a policy document with AI
+  const handleProcessPolicy = async (policy: PolicyDocument) => {
+    setAILoading(true);
+    setAIError(null);
+    setAIResult(null);
+    try {
+      // 1. Fetch all prompts
+      const promptRes = await fetch('/api/prompts');
+      if (!promptRes.ok) throw new Error('Failed to fetch prompts');
+      const prompts = await promptRes.json();
+      // 2. Filter and sort
+      const filtered = prompts
+        .filter((p: any) => p.category?.primary === 'Policy' && p.category?.secondary === 'Extraction')
+        .sort((a: any, b: any) => new Date(b.metadata?.updatedAt).getTime() - new Date(a.metadata?.updatedAt).getTime());
+      const prompt = filtered[0];
+      if (!prompt) throw new Error('No suitable prompt found');
+      // 3. Render prompt with replacements (ask user or use defaults)
+
+      // For demo, use policy fields as replacements
+      const replacements = { ...policy };
+      const renderedPrompt = renderPrompt({ template: prompt.template, replacements, warnOnMissing: true });
+      // 4. Fetch the processed document as Blob
+      const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/policy-documents-processed/${policy.processed_path}`;
+      const fileRes = await fetch(fileUrl);
+      if (!fileRes.ok) throw new Error('Failed to fetch policy document');
+      const contentType = fileRes.headers.get('content-type') || 'application/octet-stream';
+      const fileBlob = await fileRes.blob();
+      const fileWithType = new File([fileBlob], policy.original_name, { type: contentType });
+      logger.info('Policy document retrieved - details', {
+        contentType,
+        fileBlob,
+        fileWithType,
+        policy
+      });
+      // 5. Send to Gemini API
+      const formData = new FormData();
+      formData.append('prompt', renderedPrompt);
+      formData.append('file', fileWithType, policy.original_name);
+      const aiRes = await fetch('/api/ai/gemini', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!aiRes.ok) {
+        const err = await aiRes.json();
+        throw new Error(err.error || 'AI processing failed');
+      }
+      const aiData = await aiRes.json();
+      setAIResult(aiData);
+      setPolicyWorkflowStage('review');
+    } catch (err) {
+      setAIError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAILoading(false);
+    }
   };
 
   useEffect(() => {
@@ -188,11 +251,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                       {/* Policy List always visible below upload */}
                       <PolicyList
                         currentClient={selectedClient}
-                        onProcess={(policy: PolicyDocument) => {
-                          setCurrentPolicy(policy);
-                          setPolicyWorkflowStage('process');
-                          // Trigger processing logic here (show spinner, etc.)
-                        }}
+                        onProcess={handleProcessPolicy}
                         onReview={(policy: PolicyDocument) => {
                           setCurrentPolicy(policy);
                           setPolicyWorkflowStage('review');
@@ -214,6 +273,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                           <div className="font-semibold text-lg">Reviewing: {currentPolicy.original_name}</div>
                         </div>
                         <ReviewDatasetTable policy={currentPolicy} />
+                        <PolicyReviewAIResult loading={aiLoading} error={aiError} result={aiResult} />
                       </div>
                     )}
                   </AccordionContent>

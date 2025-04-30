@@ -49,11 +49,12 @@ export async function POST(req: NextRequest) {
 
     // Gemini Service
     const apiKey = process.env.GEMINI_API_KEY;
+    const modelName = process.env.GEMINI_MODEL_NAME || 'models/gemini-1.5-pro-latest';
     if (!apiKey) {
       logger.error('Gemini API: Missing GEMINI_API_KEY in environment');
       return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
     }
-    const gemini = new GeminiService(apiKey);
+    const gemini = new GeminiService(apiKey, modelName);
     const result = await gemini.generateContent({ prompt, file: fileData });
 
     logger.info('Gemini API: Responding with Gemini result', {

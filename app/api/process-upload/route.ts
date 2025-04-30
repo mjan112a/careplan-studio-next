@@ -121,9 +121,18 @@ export async function POST(request: NextRequest) {
     }
 
     logger.info('Policy document uploaded', { userId: user.id, fileId, clientId });
+    logger.info('Policy document uploaded - details', 
+      { id: fileId,
+      url: publicUrl,
+      type: file.type,
+      originalFileName,
+      processedFileName,
+      clientId: clientId || null
+      });
     return NextResponse.json({
       id: fileId,
       url: publicUrl,
+      type: file.type,
       originalFileName,
       processedFileName,
       clientId: clientId || null
