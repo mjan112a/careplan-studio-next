@@ -1,6 +1,6 @@
 {
     "functions": {
-      "api/ai/gemini/*.js": {
+      "api/ai/*": {
         "maxDuration": 30
       }
     }
