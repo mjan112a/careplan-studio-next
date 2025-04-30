@@ -1,0 +1,7 @@
+{
+    "functions": {
+      "api/ai/gemini/*.js": {
+        "maxDuration": 30
+      }
+    }
+  } 
