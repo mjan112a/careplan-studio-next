@@ -4,6 +4,8 @@ import { GeminiService } from '@/lib/ai/gemini';
 import { logger } from '@/lib/logging';
 
 export const runtime = 'nodejs';
+export const maxDuration = 30; // These functions can run for a maximum of 30 seconds
+
 
 export async function POST(req: NextRequest) {
   try {
