@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/ai/gemini/route.ts": {
+      "maxDuration": 30
+    }
+  }
+} 

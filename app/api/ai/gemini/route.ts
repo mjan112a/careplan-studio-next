@@ -69,6 +69,11 @@ export async function POST(req: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
       path: req.nextUrl.pathname,
     });
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    // Bubble up 504 if timeout detected
+    const message = error instanceof Error ? error.message : String(error);
+    if (message && (message.includes('timeout') || message.includes('504'))) {
+      return NextResponse.json({ error: message }, { status: 504 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 
