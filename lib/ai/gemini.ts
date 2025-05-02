@@ -1,10 +1,13 @@
 import { GoogleGenerativeAI, type GenerateContentRequest, type GenerateContentResult } from '@google/generative-ai';
 import { logger } from '@/lib/logging';
+import { logAIInteraction } from '@/lib/ai/ai-interactions';
 
 export interface IAIService {
   generateContent(options: {
     prompt: string;
     file?: { buffer: Buffer; filename: string; mimetype: string };
+    userId?: string;
+    ipAddress?: string;
   }): Promise<unknown>;
 }
 
@@ -17,53 +20,58 @@ export class GeminiService implements IAIService {
     this.modelName = modelName;
   }
 
-  async generateContent({ prompt, file }: { prompt: string; file?: { buffer: Buffer; filename: string; mimetype: string } }): Promise<GenerateContentResult> {
-    try {
-      const request: GenerateContentRequest = {
-        contents: [
-          { role: 'user', parts: [{ text: prompt }] },
-        ],
-      };
-
-      if (file) {
-        // For logging, only log filename and mimetype
-        logger.info('GeminiService: Received file for prompt', { filename: file.filename, mimetype: file.mimetype });
-        // Add file as part if supported (Gemini supports images, not PDFs directly)
-        if (file.mimetype.startsWith('image/')) {
-          request.contents[0].parts.push({ inlineData: { data: file.buffer.toString('base64'), mimeType: file.mimetype } });
-        } else {
-          logger.info('GeminiService: File type not supported for inline data', { filename: file.filename, mimetype: file.mimetype });
-        }
+  async generateContent({ prompt, file, userId, ipAddress }: { prompt: string; file?: { buffer: Buffer; filename: string; mimetype: string }; userId?: string; ipAddress?: string }): Promise<GenerateContentResult> {
+    const start = process.hrtime.bigint();
+    let status = 'success';
+    let errorCode: string | null = null;
+    let errorMessage: string | null = null;
+    let response: GenerateContentResult | null = null;
+    const request: GenerateContentRequest = {
+      contents: [
+        { role: 'user', parts: [{ text: prompt }] },
+      ],
+    };
+    let fileMetadata: { filename: string; mimetype: string; size?: number } | null = null;
+    if (file) {
+      fileMetadata = { filename: file.filename, mimetype: file.mimetype, size: file.buffer.length };
+      if (file.mimetype.startsWith('image/')) {
+        request.contents[0].parts.push({ inlineData: { data: file.buffer.toString('base64'), mimeType: file.mimetype } });
       }
-
-      logger.info('GeminiService: Sending request to Gemini', {
-        prompt,
-        file: file ? { filename: file.filename, mimetype: file.mimetype } : undefined,
-        model: this.modelName,
-        apiEndpoint: 'https://generativelanguage.googleapis.com',
-        apiVersion: 'v1beta',
-        requestPath: `/v1beta/${this.modelName}:generateContent`,
-        hasFile: !!file,
-        fileType: file?.mimetype,
-        fileName: file?.filename,
-      });
-
+    }
+    try {
       const model = this.client.getGenerativeModel({ model: this.modelName });
-      const response: GenerateContentResult = await model.generateContent(request);
-
-      logger.info('GeminiService: Received response from Gemini', {
-        response: JSON.stringify(response.response, null, 2),
-        model: this.modelName,
-      });
-
+      response = await model.generateContent(request);
       return response;
     } catch (error) {
+      status = 'error';
+      errorCode = (error as any)?.code || null;
+      errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('GeminiService: Error generating content', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
-        context: { prompt, file: file ? { filename: file.filename, mimetype: file.mimetype } : undefined, model: this.modelName },
+        context: { prompt, file: fileMetadata, model: this.modelName },
       });
       throw error;
+    } finally {
+      const end = process.hrtime.bigint();
+      const latencyMs = Math.round(Number(end - start) / 1_000_000);
+      await logAIInteraction({
+        request: {
+          prompt,
+          file: fileMetadata,
+          model: this.modelName,
+        },
+        response: response ? response.response : null,
+        latencyMs,
+        errorCode,
+        errorMessage,
+        modelName: this.modelName,
+        userId,
+        fileMetadata,
+        status,
+        promptHash: null, // Optionally hash the prompt for analytics
+        ipAddress,
+      });
     }
   }
 } 

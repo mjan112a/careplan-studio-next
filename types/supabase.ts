@@ -131,6 +131,53 @@ export interface Database {
           subject?: string
           body?: string
         }
+      },
+      ai_interactions: {
+        Row: {
+          id: string;
+          timestamp: string;
+          request: Json;
+          response: Json | null;
+          latency_ms: number | null;
+          error_code: string | null;
+          error_message: string | null;
+          model_name: string;
+          user_id: string | null;
+          file_metadata: Json | null;
+          status: string;
+          prompt_hash: string | null;
+          ip_address: string | null;
+        };
+        Insert: {
+          id?: string;
+          timestamp?: string;
+          request: Json;
+          response?: Json | null;
+          latency_ms?: number | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          model_name: string;
+          user_id?: string | null;
+          file_metadata?: Json | null;
+          status?: string;
+          prompt_hash?: string | null;
+          ip_address?: string | null;
+        };
+        Update: {
+          id?: string;
+          timestamp?: string;
+          request?: Json;
+          response?: Json | null;
+          latency_ms?: number | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          model_name?: string;
+          user_id?: string | null;
+          file_metadata?: Json | null;
+          status?: string;
+          prompt_hash?: string | null;
+          ip_address?: string | null;
+        };
       }
     }
     Views: {
