@@ -143,6 +143,25 @@ export default function DashboardContent({ user }: DashboardContentProps) {
       }
       const aiData = await aiRes.json();
       setAIResult(aiData);
+      // Store the full AI response in processed_data
+      try {
+        const patchRes = await fetch('/api/policy-documents', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: policy.id, processed_data: aiData })
+        });
+        if (!patchRes.ok) {
+          const err = await patchRes.json();
+          throw new Error(err.error || 'Failed to update processed_data');
+        }
+        logger.info('Processed data saved to policy document', { policyId: policy.id });
+      } catch (error) {
+        logger.error('Failed to save processed_data', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          policyId: policy.id
+        });
+      }
       setPolicyWorkflowStage('review');
     } catch (err) {
       setAIError(err instanceof Error ? err.message : String(err));
@@ -307,7 +326,30 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                           </button>
                           <div className="font-semibold text-lg">Reviewing: {currentPolicy.original_name}</div>
                         </div>
-                        <ReviewDatasetTable policy={currentPolicy} aiResult={aiResult} />
+                        <ReviewDatasetTable policy={currentPolicy} aiResult={aiResult}
+                          onApprove={async () => {
+                            try {
+                              const res = await fetch('/api/policy-documents', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: currentPolicy.id, approved: true })
+                              });
+                              if (!res.ok) {
+                                const err = await res.json();
+                                throw new Error(err.error || 'Failed to approve dataset');
+                              }
+                              logger.info('Dataset approved', { policyId: currentPolicy.id });
+                              setPolicyListRefreshFlag(f => f + 1);
+                            } catch (error) {
+                              logger.error('Failed to approve dataset', {
+                                error: error instanceof Error ? error.message : String(error),
+                                stack: error instanceof Error ? error.stack : undefined,
+                                policyId: currentPolicy.id
+                              });
+                              alert('Failed to approve dataset: ' + (error instanceof Error ? error.message : String(error)));
+                            }
+                          }}
+                        />
                       </div>
                     )}
                   </AccordionContent>

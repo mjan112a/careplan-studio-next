@@ -111,4 +111,26 @@ EXCEPTION
             ON policy_documents
             USING (true)
             WITH CHECK (true);
+END $$;
+
+-- Add processed_data column if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='policy_documents' AND column_name='processed_data'
+    ) THEN
+        ALTER TABLE policy_documents ADD COLUMN processed_data JSONB;
+    END IF;
+END $$;
+
+-- Add approved column if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='policy_documents' AND column_name='approved'
+    ) THEN
+        ALTER TABLE policy_documents ADD COLUMN approved BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
 END $$; 

@@ -10,6 +10,7 @@ interface PolicyDocument {
 interface ReviewDatasetTableProps {
   policy: PolicyDocument;
   aiResult?: unknown;
+  onApprove?: () => void;
 }
 
 // Try to extract a table from the AI result
@@ -36,7 +37,7 @@ function extractTableData(result: unknown): { columns: string[]; rows: any[] } |
   return null;
 }
 
-export const ReviewDatasetTable: React.FC<ReviewDatasetTableProps> = ({ policy, aiResult }) => {
+export const ReviewDatasetTable: React.FC<ReviewDatasetTableProps> = ({ policy, aiResult, onApprove }) => {
   const tableData = useMemo(() => extractTableData(aiResult), [aiResult]);
 
   return (
@@ -65,7 +66,7 @@ export const ReviewDatasetTable: React.FC<ReviewDatasetTableProps> = ({ policy, 
         <div className="text-gray-500">No extracted data available from AI.</div>
       )}
       <div className="mt-6 flex justify-end">
-        <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white">Approve Dataset</Button>
+        <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={onApprove}>Approve Dataset</Button>
       </div>
     </div>
   );

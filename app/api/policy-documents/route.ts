@@ -89,4 +89,45 @@ export async function DELETE(req: NextRequest) {
     });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// PATCH: Update processed_data or approved for a policy document
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      logger.error('No user found in authenticated session');
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+    const body = await req.json();
+    const { id, processed_data, approved } = body;
+    if (!id) {
+      return NextResponse.json({ error: 'Missing document id' }, { status: 400 });
+    }
+    // Build update object
+    const update: Record<string, any> = {};
+    if (processed_data !== undefined) update.processed_data = processed_data;
+    if (approved !== undefined) update.approved = approved;
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+    const { error } = await supabase
+      .from('policy_documents')
+      .update(update)
+      .eq('id', id)
+      .eq('user_id', user.id);
+    if (error) {
+      logger.error('Error updating policy document', { error: error.message, id, userId: user.id });
+      return NextResponse.json({ error: 'Failed to update document' }, { status: 500 });
+    }
+    logger.info('Policy document updated', { id, userId: user.id, update });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logger.error('Error in policy-documents PATCH API', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 } 
