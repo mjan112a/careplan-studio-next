@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, CheckCircle2, Trash2 } from 'lucide-react';
+import { FileText, Loader2, CheckCircle2, Trash2, MousePointer } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 
@@ -15,7 +15,8 @@ export interface PolicyDocument {
   original_name: string;
   created_at: string;
   updated_at: string;
-  // Add more fields as needed (e.g., processed status)
+  processed_data: any | null;
+  approved: boolean;
 }
 
 interface PolicyListProps {
@@ -107,13 +108,20 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
             <div className="flex-1 flex flex-col sm:flex-row items-center justify-between w-full">
               <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full">
                 <span className="font-medium text-center sm:text-left">{policy.original_name}</span>
-                {/* Status badge placeholder */}
-                <span className="ml-2 text-xs text-green-700 bg-green-100 rounded px-2 py-0.5">Ready</span>
+                {/* Status badge dynamic */}
+                {policy.processed_data === null || policy.processed_data === undefined ? (
+                  <span className="ml-2 text-xs text-green-700 bg-green-100 rounded px-2 py-0.5">Ready</span>
+                ) : policy.approved ? (
+                  <span className="ml-2 text-xs text-yellow-800 bg-yellow-200 rounded px-2 py-0.5">Approved</span>
+                ) : (
+                  <span className="ml-2 text-xs text-green-700 bg-green-100 rounded px-2 py-0.5">Processed</span>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-2 sm:mt-0">
                 <Button
                   variant="outline"
                   size="sm"
+                  className="border-blue-500 cursor-pointer hover:shadow-md transition-shadow flex items-center gap-1"
                   onClick={async () => {
                     setProcessingId(policy.id);
                     try {
@@ -127,15 +135,18 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
                   {processingId === policy.id ? (
                     <span className="flex items-center gap-1"><Loader2 className="animate-spin w-4 h-4" /> Processing...</span>
                   ) : (
-                    'Process Document'
+                    <span className="flex items-center gap-1">
+                      <MousePointer className="w-4 h-4" /> Process
+                    </span>
                   )}
                 </Button>
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
+                  className="border-blue-500 text-black bg-white hover:shadow-md transition-shadow flex items-center gap-1"
                   onClick={() => onReview(policy)}
                 >
-                  <CheckCircle2 className="w-4 h-4 mr-1" /> Review Dataset
+                  <CheckCircle2 className="w-4 h-4" /> Review
                 </Button>
               </div>
             </div>

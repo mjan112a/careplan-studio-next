@@ -140,9 +140,15 @@ export const PolicyUpload: React.FC<PolicyUploadProps> = ({ currentClient, user,
             disabled={isUploading}
           />
           <label htmlFor="policy-upload-input">
-            <Button asChild type="button" disabled={isUploading}>
+            <Button
+              asChild
+              type="button"
+              disabled={isUploading}
+              variant="outline"
+              className="border-blue-500 text-black bg-white hover:shadow-md transition-shadow gap-1"
+            >
               <span>
-                {isUploading ? 'Uploading...' : 'Upload Policy Document'}
+                {isUploading ? 'Uploading...' : 'Upload Policy'}
               </span>
             </Button>
           </label>
