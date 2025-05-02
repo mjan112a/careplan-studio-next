@@ -15,7 +15,8 @@ import {
   Clipboard,
   PieChart,
   ChevronDown,
-  Clock
+  Clock,
+  Brain
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
@@ -31,6 +32,7 @@ import type { PolicyDocument } from '@/components/PolicyList';
 import { PolicyReviewAIResult } from '@/components/PolicyReviewAIResult';
 import { renderPrompt } from '@/app/api/prompts/lib/render';
 import { logger } from '@/lib/logging';
+import type { Database } from '@/types/supabase';
 
 interface DashboardContentProps {
   user: User | null;
@@ -49,6 +51,9 @@ export default function DashboardContent({ user }: DashboardContentProps) {
   const [aiResult, setAIResult] = useState<unknown>(null);
   const [aiLoading, setAILoading] = useState(false);
   const [aiError, setAIError] = useState<string | null>(null);
+  const [aiInteraction, setAIInteraction] = useState<Database['public']['Tables']['ai_interactions']['Row'] | null>(null);
+  const [aiInteractionLoading, setAIInteractionLoading] = useState(false);
+  const [aiInteractionError, setAIInteractionError] = useState<string | null>(null);
   
   // Fetch clients
   const refreshClients = async () => {
@@ -145,6 +150,36 @@ export default function DashboardContent({ user }: DashboardContentProps) {
       setAILoading(false);
     }
   };
+
+  // Fetch most recent AI interaction for the current user
+  useEffect(() => {
+    if (!user) return;
+    setAIInteractionLoading(true);
+    setAIInteractionError(null);
+    fetch(`/api/ai_interactions?limit=1`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to fetch AI interactions');
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data.data && data.data.length > 0) {
+          setAIInteraction(data.data[0]);
+        } else {
+          setAIInteraction(null);
+        }
+      })
+      .catch((err) => {
+        setAIInteractionError(err instanceof Error ? err.message : String(err));
+        logger.error('Failed to fetch AI interactions', {
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+      })
+      .finally(() => setAIInteractionLoading(false));
+  }, [user]);
 
   useEffect(() => {
     refreshClients();
@@ -275,6 +310,54 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                         <ReviewDatasetTable policy={currentPolicy} aiResult={aiResult} />
                         <PolicyReviewAIResult loading={aiLoading} error={aiError} result={aiResult} />
                       </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {/* AI Interactions Section */}
+              <Accordion type="single" collapsible className="w-full border rounded-lg">
+                <AccordionItem value="ai-interactions" className="border-none">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50 hover:bg-gray-100 rounded-t-lg">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-pink-600" />
+                      <div className="flex-1 text-left">
+                        <h2 className="text-lg font-medium text-gray-900">AI Interactions</h2>
+                        <p className="text-sm text-gray-500">Most recent AI extraction result</p>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pt-4 pb-2">
+                    {aiInteractionLoading && (
+                      <div className="text-gray-500">Loading latest AI interaction...</div>
+                    )}
+                    {aiInteractionError && (
+                      <div className="text-red-600">Error: {aiInteractionError}</div>
+                    )}
+                    {!aiInteractionLoading && !aiInteractionError && aiInteraction && (
+                      <div>
+                        <CopyAIInteractionButton aiInteraction={aiInteraction} />
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 overflow-x-auto text-xs font-mono whitespace-pre-wrap mt-2">
+                          <div className="mb-2 text-sm text-gray-700">
+                            <span className="font-semibold">Timestamp:</span> {new Date(aiInteraction.timestamp).toLocaleString()}<br />
+                            <span className="font-semibold">Status:</span> {aiInteraction.status}<br />
+                            <span className="font-semibold">Model:</span> {aiInteraction.model_name}<br />
+                            <span className="font-semibold">Latency:</span> {aiInteraction.latency_ms ?? 'N/A'} ms<br />
+                            <span className="font-semibold">Error:</span> {aiInteraction.error_code ? `${aiInteraction.error_code} - ${aiInteraction.error_message}` : 'None'}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Request:</span>
+                            <pre className="bg-white border rounded p-2 mt-1 mb-2 overflow-x-auto">{JSON.stringify(aiInteraction.request, null, 2)}</pre>
+                          </div>
+                          <div>
+                            <span className="font-semibold">Response:</span>
+                            <pre className="bg-white border rounded p-2 mt-1 overflow-x-auto">{JSON.stringify(aiInteraction.response, null, 2)}</pre>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!aiInteractionLoading && !aiInteractionError && !aiInteraction && (
+                      <div className="text-gray-500">No AI interactions found for your account.</div>
                     )}
                   </AccordionContent>
                 </AccordionItem>
@@ -473,6 +556,33 @@ export default function DashboardContent({ user }: DashboardContentProps) {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+function CopyAIInteractionButton({ aiInteraction }: { aiInteraction: any }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(aiInteraction, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      setCopied(false);
+    }
+  };
+  return (
+    <div className="flex items-center mb-2">
+      <button
+        type="button"
+        className="flex items-center gap-2 px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 border border-gray-300 text-xs font-medium text-gray-700 transition-colors"
+        onClick={handleCopy}
+        aria-label="Copy AI interaction to clipboard"
+      >
+        <Clipboard className="h-4 w-4" />
+        COPY to Clipboard
+      </button>
+      {copied && <span className="ml-2 text-green-600 text-xs">Copied!</span>}
     </div>
   );
 } 

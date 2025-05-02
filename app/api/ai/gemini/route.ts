@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
     }
     const gemini = new GeminiService(apiKey, modelName);
-    const result = await gemini.generateContent({ prompt, file: fileData });
+    const result = await gemini.generateContent({ prompt, file: fileData, userId: user.id });
 
     logger.info('Gemini API: Responding with Gemini result', {
       response: JSON.stringify(result.response, null, 2),
