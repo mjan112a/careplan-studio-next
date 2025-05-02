@@ -42,7 +42,6 @@ export const ReviewDatasetTable: React.FC<ReviewDatasetTableProps> = ({ policy, 
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
-      <h3 className="text-lg font-semibold mb-4">Extracted Data for: {policy.original_name}</h3>
       {tableData ? (
         <table className="min-w-full text-sm border">
           <thead>

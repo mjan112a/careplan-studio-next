@@ -308,6 +308,11 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                         onProcess={handleProcessPolicy}
                         onReview={(policy: PolicyDocument) => {
                           setCurrentPolicy(policy);
+                          if (policy.processed_data) {
+                            setAIResult(policy.processed_data);
+                          } else {
+                            setAIResult(null);
+                          }
                           setPolicyWorkflowStage('review');
                         }}
                         currentPolicy={currentPolicy}
