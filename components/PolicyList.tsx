@@ -20,7 +20,7 @@ export interface PolicyDocument {
 
 interface PolicyListProps {
   currentClient: { id: string; name: string } | null;
-  onProcess: (policy: PolicyDocument) => void;
+  onProcess: (policy: PolicyDocument) => Promise<void>;
   onReview: (policy: PolicyDocument) => void;
   currentPolicy: PolicyDocument | null;
   refreshFlag: number;
@@ -114,11 +114,13 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     setProcessingId(policy.id);
-                    onProcess(policy);
-                    // Simulate processing delay
-                    setTimeout(() => setProcessingId(null), 2000);
+                    try {
+                      await onProcess(policy);
+                    } finally {
+                      setProcessingId(null);
+                    }
                   }}
                   disabled={!!processingId}
                 >

@@ -95,7 +95,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
   };
 
   // Handler to process a policy document with AI
-  const handleProcessPolicy = async (policy: PolicyDocument) => {
+  const handleProcessPolicy = async (policy: PolicyDocument): Promise<void> => {
     setAILoading(true);
     setAIError(null);
     setAIResult(null);
@@ -308,7 +308,6 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                           <div className="font-semibold text-lg">Reviewing: {currentPolicy.original_name}</div>
                         </div>
                         <ReviewDatasetTable policy={currentPolicy} aiResult={aiResult} />
-                        <PolicyReviewAIResult loading={aiLoading} error={aiError} result={aiResult} />
                       </div>
                     )}
                   </AccordionContent>

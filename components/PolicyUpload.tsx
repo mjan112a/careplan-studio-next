@@ -122,10 +122,7 @@ export const PolicyUpload: React.FC<PolicyUploadProps> = ({ currentClient, user,
   };
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Upload Policy Documents</CardTitle>
-      </CardHeader>
+    <Card className="mb-0">
       <CardContent>
         {!currentClient && (
           <div className="mb-4 p-3 bg-yellow-50 text-yellow-800 rounded">
