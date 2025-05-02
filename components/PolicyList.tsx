@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Loader2, CheckCircle2, Trash2, MousePointer } from 'lucide-react';
 import Image from 'next/image';
@@ -33,6 +33,7 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Fetch policies for the current client
   useEffect(() => {
@@ -85,9 +86,37 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
     );
   };
 
+  const approvedDocs = policies.filter(p => p.approved && p.processed_data);
+  const handleDiscuss = () => {
+    if (!formRef.current) return;
+    // Set the hidden input value to the JSON string of processed_data array
+    (formRef.current.elements.namedItem('data') as HTMLInputElement).value = JSON.stringify(approvedDocs.map(p => p.processed_data));
+    formRef.current.submit();
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
-      <h3 className="text-lg font-semibold mb-4">Policy List</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Policy List</h3>
+        <form
+          ref={formRef}
+          method="POST"
+          action="/simulationTarget"
+          className="m-0"
+        >
+          <input type="hidden" name="data" />
+          <Button
+            type="button"
+            onClick={handleDiscuss}
+            disabled={approvedDocs.length === 0}
+            className="ml-2 bg-gradient-to-r from-green-400 to-green-600 text-white font-bold shadow-lg hover:from-green-500 hover:to-green-700 transition-all px-6 py-2 rounded-full border-2 border-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5" /> Discuss
+            </span>
+          </Button>
+        </form>
+      </div>
       {loading && <div className="text-blue-600 flex items-center gap-2"><Loader2 className="animate-spin" /> Loading...</div>}
       {error && <div className="text-red-600">{error}</div>}
       {policies.length === 0 && !loading && (
