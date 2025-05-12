@@ -138,7 +138,9 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
               <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full">
                 <span className="font-medium text-center sm:text-left">{policy.original_name}</span>
                 {/* Status badge dynamic */}
-                {policy.processed_data === null || policy.processed_data === undefined ? (
+                {processingId === policy.id ? (
+                  <span className="ml-2 text-xs text-blue-700 bg-blue-100 rounded px-2 py-0.5">Processing...</span>
+                ) : policy.processed_data === null || policy.processed_data === undefined ? (
                   <span className="ml-2 text-xs text-green-700 bg-green-100 rounded px-2 py-0.5">Ready</span>
                 ) : policy.approved ? (
                   <span className="ml-2 text-xs text-yellow-800 bg-yellow-200 rounded px-2 py-0.5">Approved</span>

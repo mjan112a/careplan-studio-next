@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { logger } from '@/lib/logging';
 
 interface PolicyDocument {
   id: string;
@@ -16,6 +17,8 @@ interface ReviewDatasetTableProps {
 // Try to extract a table from the AI result
 function extractTableData(result: unknown): { columns: string[]; rows: any[] } | null {
   try {
+    logger.debug('extractTableData: received result', { result });
+
     if (
       result &&
       typeof result === 'object' &&
@@ -24,16 +27,36 @@ function extractTableData(result: unknown): { columns: string[]; rows: any[] } |
       (result as any).candidates[0]?.content?.parts[0]?.text
     ) {
       let text = (result as any).candidates[0].content.parts[0].text as string;
-      text = text.replace(/^```json|```$/g, '').trim();
-      const parsed = JSON.parse(text);
+      logger.debug('extractTableData: raw text', { text });
+
+      // Extract JSON block from markdown code block
+      const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
+      let jsonString = match ? match[1] : text;
+      logger.debug('extractTableData: extracted jsonString', { jsonString });
+
+      // Try parsing
+      const parsed = JSON.parse(jsonString);
+      logger.debug('extractTableData: parsed JSON', { parsed });
+
       if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
         const columns = Array.from(
           new Set(parsed.flatMap((row: any) => Object.keys(row)))
         );
+        logger.info('extractTableData: successfully extracted table data', { columns, rowCount: parsed.length });
         return { columns, rows: parsed };
+      } else {
+        logger.error('extractTableData: parsed data is not an array of objects', { parsed });
       }
+    } else {
+      logger.error('extractTableData: result does not have expected structure', { result });
     }
-  } catch {}
+  } catch (error) {
+    logger.error('extractTableData: failed to extract table data', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      result,
+    });
+  }
   return null;
 }
 

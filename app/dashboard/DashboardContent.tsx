@@ -163,6 +163,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
         });
       }
       setPolicyWorkflowStage('review');
+      setPolicyListRefreshFlag(f => f + 1);
     } catch (err) {
       setAIError(err instanceof Error ? err.message : String(err));
     } finally {
