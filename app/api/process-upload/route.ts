@@ -33,7 +33,10 @@ export async function POST(request: NextRequest) {
     const fileId = uuidv4();
     const fileExt = file.name.split('.').pop();
     const originalFileName = `${user.id}/${fileId}-original.${fileExt}`;
-    const processedFileName = `${user.id}/${fileId}.jpg`;
+    
+    // Only use .jpg extension for images that will be processed with Sharp
+    const processedExt = file.type.startsWith('image/') ? 'jpg' : fileExt;
+    const processedFileName = `${user.id}/${fileId}.${processedExt}`;
 
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -45,7 +48,9 @@ export async function POST(request: NextRequest) {
     // Process file if it's an image
     let processedBuffer;
     if (file.type.startsWith('image/')) {
+      logger.info('Processing image file with sharp', { fileId, userId: user.id });
       processedBuffer = await sharp(buffer)
+        .rotate()
         .resize(PROCESSED_FILE_WIDTH, null, {
           fit: 'inside',
           withoutEnlargement: true

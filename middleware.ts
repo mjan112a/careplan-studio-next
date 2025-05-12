@@ -30,13 +30,18 @@ export async function middleware(req: NextRequest) {
     '/auth/signup',  // Sign up page
     '/auth/reset-password',  // Password reset page
     '/auth/update-password', // Password update page
+    '/debug/*',   // Debug routes
   ];
+
+  // Also check for debug parameter in query string to bypass auth for API routes
+  const hasDebugParameter = req.nextUrl.searchParams.get('debug') === 'true';
+  const isApiWithDebug = req.nextUrl.pathname.startsWith('/api/') && hasDebugParameter;
 
   const isPublicPath = PUBLIC_PATHS.some(path => 
     path.endsWith('*') 
       ? req.nextUrl.pathname.startsWith(path.slice(0, -1))  // For paths ending with * do prefix match
       : req.nextUrl.pathname === path                       // For other paths do exact match
-  );
+  ) || isApiWithDebug; // Also allow API routes with debug parameter
 
   // Create a response object that we can modify
   const res = NextResponse.next();

@@ -34,7 +34,7 @@ export class GeminiService implements IAIService {
     let fileMetadata: { filename: string; mimetype: string; size?: number } | null = null;
     if (file) {
       fileMetadata = { filename: file.filename, mimetype: file.mimetype, size: file.buffer.length };
-      if (file.mimetype.startsWith('image/')) {
+      if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
         request.contents[0].parts.push({ inlineData: { data: file.buffer.toString('base64'), mimeType: file.mimetype } });
       }
     }

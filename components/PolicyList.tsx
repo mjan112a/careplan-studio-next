@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, CheckCircle2, Trash2, MousePointer } from 'lucide-react';
+import { FileText, Loader2, CheckCircle2, Trash2, MousePointer, Eye } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 
@@ -181,8 +181,8 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
                 </Button>
               </div>
             </div>
-            {/* Delete button at far right */}
-            <div className="flex-shrink-0 ml-2">
+            {/* Delete and Debug buttons at far right */}
+            <div className="flex-shrink-0 ml-2 flex gap-1">
               <Button
                 variant="ghost"
                 size="icon"
@@ -192,6 +192,18 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
                 disabled={deletingId === policy.id}
               >
                 {deletingId === policy.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-blue-500 hover:bg-blue-100"
+                aria-label="Debug policy document"
+                onClick={e => {
+                  e.stopPropagation();
+                  window.open(`/debug/policy-document?id=${policy.id}`, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                <Eye className="w-4 h-4" />
               </Button>
             </div>
           </li>

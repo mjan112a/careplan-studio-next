@@ -3,17 +3,48 @@ import { createServerSupabaseClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logging';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // GET: List policy documents for a client or unassigned
+// Or get a specific document by ID with metadata if id param is provided
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const documentId = searchParams.get('id');
+    const isDebug = searchParams.get('debug') === 'true';
+    
+    // Log debug mode access
+    if (isDebug) {
+      logger.info('Debug mode access detected for API', { 
+        documentId, 
+        path: req.nextUrl.pathname,
+        method: req.method
+      });
+    }
+    
     const supabase = await createServerSupabaseClient();
+    
+    // If documentId is provided and this is a debug request, skip auth check
+    if (documentId && isDebug) {
+      logger.info('Debug mode: Fetching policy document without auth check', { documentId });
+      return await getDocumentWithMetadata(supabase, documentId);
+    }
+    
+    // Otherwise require authentication
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       logger.error('No user found in authenticated session');
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
-    const { searchParams } = new URL(req.url);
+    
+    // If documentId is provided, get a specific document with metadata
+    if (documentId) {
+      logger.info('Fetching specific policy document with metadata', { documentId, userId: user.id });
+      return await getDocumentWithMetadata(supabase, documentId);
+    }
+    
+    // Otherwise, list documents (existing functionality)
     const clientId = searchParams.get('clientId');
     let query = supabase
       .from('policy_documents')
@@ -37,6 +68,94 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// Helper function to get a document with its metadata
+async function getDocumentWithMetadata(supabase: any, documentId: string) {
+  // Fetch the document
+  const { data: policy, error } = await supabase
+    .from('policy_documents')
+    .select('*')
+    .eq('id', documentId)
+    .single();
+  
+  if (error || !policy) {
+    logger.error('Policy document not found or fetch error', { id: documentId, error });
+    return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+  }
+  
+  let originalUrl = null;
+  let processedUrl = null;
+  let originalMetadata = null;
+  let processedMetadata = null;
+  
+  // Get original document URL and metadata
+  if (policy.original_path) {
+    // Get a signed URL for the original document
+    const { data: originalData, error: originalError } = await supabase
+      .storage
+      .from('policy-documents-original')
+      .createSignedUrl(policy.original_path, 60 * 60); // 1 hour expiry
+    
+    if (!originalError) {
+      originalUrl = originalData?.signedUrl || null;
+    }
+    
+    // Get metadata for original document
+    logger.info('Fetching metadata for original document', { 
+      bucket: 'policy-documents-original',
+      path: policy.original_path 
+    });
+    
+    const { data: originalMeta, error: originalMetadataError } = await supabase
+      .rpc('get_storage_object_metadata_by_bucket', { 
+        file_path: policy.original_path,
+        bucket_name: 'policy-documents-original'
+      });
+      
+    if (!originalMetadataError && originalMeta) {
+      logger.info('Retrieved original document metadata', { 
+        bucket: 'policy-documents-original',
+        metadata: originalMeta 
+      });
+      originalMetadata = originalMeta;
+    }
+  }
+  
+  // Get processed document URL and metadata
+  if (policy.processed_path) {
+    // Get a public URL for the processed document
+    processedUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/policy-documents-processed/${policy.processed_path}`;
+    
+    // Get metadata for processed document
+    logger.info('Fetching metadata for processed document', { 
+      bucket: 'policy-documents-processed',
+      path: policy.processed_path 
+    });
+    
+    const { data: processedMeta, error: processedMetadataError } = await supabase
+      .rpc('get_storage_object_metadata_by_bucket', { 
+        file_path: policy.processed_path,
+        bucket_name: 'policy-documents-processed'
+      });
+      
+    if (!processedMetadataError && processedMeta) {
+      logger.info('Retrieved processed document metadata', { 
+        bucket: 'policy-documents-processed',
+        metadata: processedMeta 
+      });
+      processedMetadata = processedMeta;
+    }
+  }
+  
+  // Return the document with URLs and metadata
+  return NextResponse.json({
+    document: policy,
+    originalUrl,
+    processedUrl,
+    originalMetadata,
+    processedMetadata
+  });
 }
 
 // DELETE: Delete a policy document by id (if owned by user)
