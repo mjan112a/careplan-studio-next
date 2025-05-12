@@ -45,6 +45,12 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
     
     // Use the getAppURL utility to get the correct base URL for all environments
     const baseUrl = getAppURL();
+    logger.info('Generated base URL for API request', { 
+      baseUrl, 
+      env: process.env.NODE_ENV,
+      vercelUrl: process.env.VERCEL_URL,
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL
+    });
     
     // Add debug=true parameter to allow API access without authentication for debugging
     const url = `${baseUrl}/api/policy-documents?id=${id}&debug=true`;
@@ -59,23 +65,38 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
     });
     
     if (!response.ok) {
-      let errorText = `HTTP error! Status: ${response.status}`;
+      const status = response.status;
+      const statusText = response.statusText;
+      let errorText = `HTTP error! Status: ${status}`;
+      
+      // Only try to read the response body once
+      let responseContent;
       try {
-        const errorData = await response.json();
-        errorText = errorData.error || errorText;
-      } catch (e) {
-        // Could be HTML error page, try to get text instead
-        errorText = await response.text();
-        // Extract the error message if it's HTML content
-        if (errorText.includes('<!DOCTYPE html>')) {
-          errorText = 'Received HTML instead of JSON. Authentication or routing issue.';
+        // Try to parse as JSON first
+        responseContent = await response.text();
+        try {
+          const errorData = JSON.parse(responseContent);
+          errorText = errorData.error || errorText;
+        } catch (jsonError) {
+          // Not JSON, use the text response
+          if (responseContent.includes('<!DOCTYPE html>')) {
+            errorText = 'Received HTML instead of JSON. Authentication or routing issue.';
+          } else {
+            errorText = responseContent || errorText;
+          }
         }
+      } catch (bodyError) {
+        errorText = 'Could not read response body';
+        logger.error('Failed to read response body', { 
+          error: bodyError instanceof Error ? bodyError.message : String(bodyError)
+        });
       }
       
       logger.error('Error response from API', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
+        status,
+        statusText,
+        error: errorText,
+        url
       });
       
       error = errorText;

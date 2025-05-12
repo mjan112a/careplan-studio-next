@@ -27,8 +27,22 @@ export async function GET(req: NextRequest) {
     
     // If documentId is provided and this is a debug request, skip auth check
     if (documentId && isDebug) {
-      logger.info('Debug mode: Fetching policy document without auth check', { documentId });
-      return await getDocumentWithMetadata(supabase, documentId);
+      logger.info('Debug mode: Fetching policy document without auth check', { documentId, url: req.url });
+      try {
+        const result = await getDocumentWithMetadata(supabase, documentId);
+        logger.info('Debug mode: Successfully fetched document', { documentId });
+        return result;
+      } catch (error) {
+        logger.error('Debug mode: Error fetching document', {
+          documentId,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        return NextResponse.json({ 
+          error: 'Failed to fetch document in debug mode', 
+          details: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
+      }
     }
     
     // Otherwise require authentication
