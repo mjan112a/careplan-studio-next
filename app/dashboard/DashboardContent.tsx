@@ -115,40 +115,29 @@ export default function DashboardContent({ user }: DashboardContentProps) {
       // For demo, use policy fields as replacements
       const replacements = { ...policy };
       const renderedPrompt = renderPrompt({ template: prompt.template, replacements, warnOnMissing: true });
-      // 4. Fetch the processed document as Blob
-      const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/policy-documents-processed/${policy.processed_path}`;
-      logger.info('Fetching processed document', { fileUrl, filePath: policy.processed_path, fileType: policy.file_type });
-      const fileRes = await fetch(fileUrl);
-      if (!fileRes.ok) {
-        logger.error('Failed to fetch policy document', { 
-          status: fileRes.status, 
-          statusText: fileRes.statusText,
-          fileUrl,
-          policyId: policy.id 
-        });
-        throw new Error('Failed to fetch policy document');
-      }
-      const fileBlob = await fileRes.blob();
-      // Use the file_type from the policy document as the MIME type
-      const fileWithType = new File([fileBlob], policy.original_name, { type: policy.file_type });
-      logger.info('Policy document retrieved - details', {
-        fileType: policy.file_type,
-        fileBlobType: fileBlob.type,
-        fileBlobSize: fileBlob.size,
-        fileWithTypeName: fileWithType.name,
-        fileWithTypeType: fileWithType.type,
-        fileWithTypeSize: fileWithType.size,
-        policyId: policy.id
+
+      logger.info('Sending policy document for AI processing', { 
+        policyId: policy.id,
+        filePath: policy.processed_path,
+        fileType: policy.file_type 
       });
-      // 5. Send to Gemini API
-      const formData = new FormData();
-      formData.append('prompt', renderedPrompt);
-      formData.append('file', fileWithType, policy.original_name);
+
+      // 4. Send file path to Gemini API instead of downloading the file
       const aiRes = await fetch('/api/ai/gemini', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: renderedPrompt,
+          filePath: policy.processed_path,
+          policyId: policy.id,
+          fileType: policy.file_type,
+          fileName: policy.original_name
+        }),
         credentials: 'include',
       });
+
       if (!aiRes.ok) {
         const err = await aiRes.json();
         throw new Error(err.error || 'AI processing failed');
