@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
-import { Trash2, FileText, CheckCircle2 } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '@/lib/logging';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
@@ -55,12 +56,13 @@ export const PolicyUpload: React.FC<PolicyUploadProps> = ({ currentClient, user,
     fetchDocs();
   }, [currentClient, user, refreshFlag]);
 
-  // Handle file upload
+  // Handle file upload using Supabase direct upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setIsUploading(true);
     setError(null);
+    
     for (const file of Array.from(files)) {
       // Validate
       if (!ALLOWED_FILE_TYPES.includes(file.type)) {
@@ -71,23 +73,59 @@ export const PolicyUpload: React.FC<PolicyUploadProps> = ({ currentClient, user,
         toast.error(`File size ${(file.size / 1024 / 1024).toFixed(1)}MB exceeds the 50MB limit.`);
         continue;
       }
+
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        if (currentClient) formData.append('clientId', currentClient.id);
-        // Use session token for SSR auth
-        const res = await fetch('/api/process-upload', {
+        // Step 1: Request a signed URL from our API
+        const signedUrlRes = await fetch('/api/policy-direct-upload', {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+            clientId: currentClient?.id
+          })
         });
-        if (!res.ok) throw new Error('Failed to upload file');
+
+        if (!signedUrlRes.ok) {
+          const errorData = await signedUrlRes.json();
+          throw new Error(errorData.error || 'Failed to get upload URL');
+        }
+
+        const { uploadUrl, token, fileId } = await signedUrlRes.json();
+
+        // Step 2: Upload directly to Supabase Storage using the signed URL
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(`Storage upload failed with status ${uploadRes.status}`);
+        }
+
+        // Step 3: Notify our backend that the upload is complete
+        await fetch('/api/process-upload/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, fileId })
+        });
+
         toast.success(`Uploaded ${file.name}`);
         setRefreshFlag(f => f + 1);
         if (onDocumentsChanged) onDocumentsChanged();
       } catch (err) {
-        toast.error(`Failed to upload ${file.name}`);
+        logger.error('Failed to upload file', {
+          error: err instanceof Error ? err.message : String(err),
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        });
+        toast.error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
+    
     setIsUploading(false);
   };
 

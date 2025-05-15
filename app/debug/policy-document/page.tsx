@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { getAppURL } from '@/utils/url';
 import { createServerSupabaseClient } from '@/lib/supabase/client';
 import Layout from '@/app/components/Layout';
+import OptimizedPDFViewer from './OptimizedPDFViewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 interface Props {
-  searchParams: { id?: string };
+  searchParams: { id?: string, optimize?: string };
 }
 
 // Add a helper function to format file size
@@ -28,6 +29,7 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
   // We need to await searchParams before accessing its properties
   const params = await searchParams;
   const id = params?.id || null;
+  const shouldOptimize = params?.optimize === 'true';
   
   // Authenticate the user
   try {
@@ -66,6 +68,8 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
     let originalMetadata: any = null;
     let processedMetadata: any = null;
     let error: string | null = null;
+    let optimizedUrl: string | null = null;
+    let optimizedSize: number | null = null;
 
     try {
       logger.info('Fetching policy document details from API', { id, userId: user.id });
@@ -105,6 +109,46 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
           
         if (!originalMetadataError && originalMeta) {
           originalMetadata = originalMeta;
+        }
+
+        // If optimize flag is true, generate an optimized version
+        if (shouldOptimize && originalUrl) {
+          try {
+            logger.info('Generating optimized PDF for testing', { id, userId: user.id });
+            
+            // Lazy-load the document optimizer to avoid importing it when not needed
+            const { optimizeDocument } = await import('@/lib/ai/document-optimizer');
+            
+            // Fetch the original document
+            const originalResponse = await fetch(originalUrl);
+            const originalBuffer = Buffer.from(await originalResponse.arrayBuffer());
+            
+            // Optimize the document
+            const optimizedBuffer = await optimizeDocument(
+              originalBuffer,
+              policy.file_type,
+              { quality: 0.7 }
+            );
+            
+            // Create a data URL for the optimized document
+            optimizedUrl = `data:${policy.file_type};base64,${optimizedBuffer.toString('base64')}`;
+            optimizedSize = optimizedBuffer.length;
+            
+            logger.info('Optimized PDF generated for testing', { 
+              id, 
+              userId: user.id,
+              originalSize: originalBuffer.length,
+              optimizedSize,
+              reduction: `${(100 - ((optimizedSize / originalBuffer.length) * 100)).toFixed(1)}%`
+            });
+          } catch (optimizeError) {
+            logger.error('Failed to optimize document for testing', {
+              error: optimizeError instanceof Error ? optimizeError.message : String(optimizeError),
+              stack: optimizeError instanceof Error ? optimizeError.stack : undefined,
+              id,
+              userId: user.id
+            });
+          }
         }
       }
       
@@ -170,6 +214,11 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
     const compressionRatio = originalSize && processedSize 
       ? ((processedSize / originalSize) * 100).toFixed(1) 
       : null;
+      
+    // Calculate optimization ratio if optimized version is available
+    const optimizationRatio = originalSize && optimizedSize
+      ? ((optimizedSize / originalSize) * 100).toFixed(1)
+      : null;
 
     return (
       <Layout user={user}>
@@ -206,14 +255,26 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-700">File Sizes</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Original: {formatFileSize(originalSize)}</span>
                       <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Processed: {formatFileSize(processedSize)}</span>
+                      {optimizedSize && (
+                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full">
+                          Optimized: {formatFileSize(optimizedSize)}
+                        </span>
+                      )}
                     </div>
                     {compressionRatio && (
                       <p className="text-xs text-gray-500 mt-2">
-                        Compression Ratio: <span className={`font-medium ${Number(compressionRatio) < 50 ? 'text-green-600' : 'text-amber-600'}`}>
+                        Current Processing Ratio: <span className={`font-medium ${Number(compressionRatio) < 50 ? 'text-green-600' : 'text-amber-600'}`}>
                           {compressionRatio}%
+                        </span> of original
+                      </p>
+                    )}
+                    {optimizationRatio && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Test Optimization Ratio: <span className={`font-medium ${Number(optimizationRatio) < 50 ? 'text-green-600' : 'text-amber-600'}`}>
+                          {optimizationRatio}%
                         </span> of original
                       </p>
                     )}
@@ -230,12 +291,29 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
                         <span className="ml-2 text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Approved</span>
                       )}
                     </div>
+                    <div className="mt-3">
+                      {!shouldOptimize ? (
+                        <Link 
+                          href={`/debug/policy-document?id=${id}&optimize=true`}
+                          className="text-xs px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded transition"
+                        >
+                          Test PDF Optimization
+                        </Link>
+                      ) : (
+                        <Link 
+                          href={`/debug/policy-document?id=${id}`}
+                          className="text-xs px-3 py-1.5 bg-gray-500 hover:bg-gray-600 text-white rounded transition"
+                        >
+                          Hide Optimized Version
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Document Display */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Original Document */}
                 <div>
                   <h2 className="font-semibold mb-2">Original <span className="text-xs text-gray-500">({originalMetadata?.bucket_name || 'policy-documents-original'})</span></h2>
@@ -290,6 +368,41 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
                     <span className="text-gray-500">No processed file available</span>
                   )}
                 </div>
+                
+                {/* Optimized Document (only shown if optimization was requested) */}
+                {shouldOptimize && (
+                  <div>
+                    <h2 className="font-semibold mb-2">Optimized <span className="text-xs text-gray-500">(Test Only)</span></h2>
+                    <p className="text-[8px] text-gray-500 mb-1 font-mono">
+                      Path: In-memory test optimization
+                    </p>
+                    <p className="text-[8px] text-gray-500 mb-2 font-mono">
+                      Size: {formatFileSize(optimizedSize)}
+                      {originalSize && optimizedSize ? ` (${((optimizedSize / originalSize) * 100).toFixed(1)}% of original)` : ''}
+                    </p>
+                    {policy.file_type.startsWith('image/') && optimizedUrl ? (
+                      <img src={optimizedUrl} alt="Optimized" className="rounded border max-w-full max-h-96" />
+                    ) : policy.file_type === 'application/pdf' && optimizedUrl ? (
+                      <div className="w-full h-96 border rounded">
+                        <OptimizedPDFViewer 
+                          pdfDataUrl={optimizedUrl}
+                          mimeType={policy.file_type}
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-gray-500">No optimized version available</span>
+                    )}
+                    
+                    {optimizedSize && originalSize && (
+                      <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-xs">
+                        <p className="font-medium text-purple-800">Optimization Results:</p>
+                        <p className="mt-1">Original: {formatFileSize(originalSize)}</p>
+                        <p>Optimized: {formatFileSize(optimizedSize)}</p>
+                        <p>Reduction: {(100 - ((optimizedSize / originalSize) * 100)).toFixed(1)}%</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Metadata Display Side by Side */}
