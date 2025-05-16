@@ -24,12 +24,15 @@ export const isAuthenticated = async () => {
   try {
     const { data: { session }, error } = await supabase.auth.getSession()
     if (error) {
-      console.error('Error checking authentication:', error)
+      logger.error('Error checking authentication', { error: error.message })
       return false
     }
     return !!session
   } catch (error) {
-    console.error('Error in isAuthenticated:', error)
+    logger.error('Error in isAuthenticated', { 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
     return false
   }
 }
@@ -39,7 +42,7 @@ export const isAdmin = async () => {
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError) {
-      console.error('Error getting session:', sessionError)
+      logger.error('Error getting session', { error: sessionError.message })
       return false
     }
     if (!session) return false
@@ -51,13 +54,16 @@ export const isAdmin = async () => {
       .single()
 
     if (profileError) {
-      console.error('Error checking admin status:', profileError)
+      logger.error('Error checking admin status', { error: profileError.message })
       return false
     }
 
     return profile?.role === 'admin'
   } catch (error) {
-    console.error('Error in isAdmin:', error)
+    logger.error('Error in isAdmin', { 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
     return false
   }
 }
@@ -67,7 +73,7 @@ export const getCurrentUser = async () => {
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError) {
-      console.error('Error getting session:', sessionError)
+      logger.error('Error getting session', { error: sessionError.message })
       return null
     }
     if (!session) return null
@@ -79,13 +85,16 @@ export const getCurrentUser = async () => {
       .single()
 
     if (profileError) {
-      console.error('Error getting user profile:', profileError)
+      logger.error('Error getting user profile', { error: profileError.message })
       return null
     }
 
     return profile
   } catch (error) {
-    console.error('Error in getCurrentUser:', error)
+    logger.error('Error in getCurrentUser', { 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
     return null
   }
 } 

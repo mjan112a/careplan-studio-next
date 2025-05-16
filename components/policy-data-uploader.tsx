@@ -14,6 +14,7 @@ import Image from "next/image"
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'react-hot-toast'
 import { supabase } from "@/utils/supabase"
+import { logInfo, logDebug, logWarn, logError } from "@/lib/logging"
 
 // Constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -67,12 +68,23 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
     setIsUploading(true);
     setError(null);
     
+    logInfo('Starting policy document upload', { 
+      fileCount: newFiles.length, 
+      fileTypes: newFiles.map(f => f.type)
+    });
+    
     // Process files sequentially to avoid rate limiting
     for (const file of newFiles) {
       const validationError = validateFile(file);
       if (validationError) {
         toast.error(validationError);
         setError(validationError);
+        logWarn('File validation failed', { 
+          fileName: file.name, 
+          fileType: file.type,
+          fileSize: file.size,
+          error: validationError
+        });
         continue;
       }
 
@@ -95,7 +107,10 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
           throw new Error('Not authenticated');
         }
 
-        console.log('Session token:', session.access_token); // Debug log
+        logDebug('Obtained session token for file upload', { 
+          fileId, 
+          fileName: file.name 
+        });
 
         // Add retry logic with exponential backoff
         let retries = 3;
@@ -112,7 +127,13 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
             });
 
             if (response.status === 401) {
-              console.error('Auth error response:', await response.text()); // Debug log
+              const responseText = await response.text();
+              logError('Authentication failed for file upload', new Error('Authentication failed'), { 
+                fileId, 
+                fileName: file.name,
+                responseStatus: response.status,
+                responseText 
+              });
               throw new Error('Authentication failed');
             }
 
@@ -122,6 +143,12 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
               if (retries === 0) {
                 throw new Error('Rate limit exceeded. Please try again in a few minutes.');
               }
+              logWarn('Rate limited during file upload, retrying', { 
+                fileId, 
+                fileName: file.name, 
+                retriesLeft: retries,
+                nextRetryDelay: delay
+              });
               await new Promise(resolve => setTimeout(resolve, delay));
               delay *= 2; // Exponential backoff
               continue;
@@ -139,6 +166,12 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
                 : f
             ));
 
+            logInfo('Successfully uploaded policy document', { 
+              fileId, 
+              fileName: file.name,
+              policyId: data.policyId 
+            });
+            
             toast.success(`Successfully uploaded ${file.name}`);
             break; // Success, exit retry loop
           } catch (error) {
@@ -149,7 +182,10 @@ export default function PolicyDataUploader({ onDataUploaded, isOpen, onClose }: 
           }
         }
       } catch (error) {
-        console.error('Error processing file:', error);
+        logError('Error processing file upload', error, { 
+          fileId, 
+          fileName: file.name 
+        });
         const errorMessage = error instanceof Error ? error.message : 'Failed to upload policy document';
         toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
         setError(errorMessage);

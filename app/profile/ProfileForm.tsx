@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import SubscriptionStatus from '@/components/SubscriptionStatus';
+import { logDebug, logInfo, logError } from '@/lib/logging';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -33,6 +34,8 @@ export default function ProfileForm({ user, initialProfile }: ProfileFormProps) 
         updated_at: new Date().toISOString(),
       };
 
+      logDebug('Updating user profile', { userId: user.id, updatedFields: Object.keys(updates) });
+
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: {
@@ -48,9 +51,10 @@ export default function ProfileForm({ user, initialProfile }: ProfileFormProps) 
 
       const data = await response.json();
       setProfile(data);
+      logInfo('Profile updated successfully', { userId: user.id });
       setMessage({ type: 'success', text: 'Profile updated successfully' });
     } catch (error) {
-      console.error('Error updating profile:', error);
+      logError('Error updating profile', error, { userId: user.id });
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to update profile' });
     } finally {
       setLoading(false);

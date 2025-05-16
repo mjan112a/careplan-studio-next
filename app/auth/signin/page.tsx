@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthForm from '@/components/auth/AuthForm';
 import { getSession } from '@/utils/auth-state';
+import { logDebug, logError } from '@/lib/logging';
 
 export default function SignIn() {
   const router = useRouter();
@@ -14,10 +15,11 @@ export default function SignIn() {
         const session = await getSession();
         if (session) {
           // If authenticated, redirect to dashboard
+          logDebug('User already authenticated, redirecting to dashboard', { userId: session.user?.id });
           router.push('/dashboard');
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        logError('Error checking session', error, { page: 'signin' });
       }
     };
 

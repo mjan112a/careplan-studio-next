@@ -6,6 +6,7 @@
  * - Implements chalk for colorful, readable output
  * - Includes stack trace parsing for detailed context
  * - Supports multiple log levels with environment-based configuration
+ * - Uses structured logging pattern with context separation
  * 
  * @see ../docs/adr/001-runtime-and-logging.md for detailed rationale
  * @see README.md for usage examples
@@ -22,7 +23,8 @@ import {
   LoggerConfig,
   LogFormat,
   isLogLevel,
-  getLogLevelName 
+  getLogLevelName,
+  LogContext
 } from './types';
 
 // Server-specific log entry interface
@@ -68,7 +70,29 @@ export class ServerLogger implements ILogger {
     }[entry.level];
     
     const levelName = `[${getLogLevelName(entry.level)}]`;
-    const contextStr = entry.context ? chalk.cyan(` ${JSON.stringify(entry.context)}`) : '';
+    
+    // Format context as key=value pairs for better readability
+    let contextStr = '';
+    if (entry.context && Object.keys(entry.context).length > 0) {
+      contextStr = ' ' + Object.entries(entry.context)
+        .map(([key, value]) => {
+          // Format special cases
+          if (value === undefined) return `${key}=undefined`;
+          if (value === null) return `${key}=null`;
+          if (typeof value === 'object' && value !== null) {
+            try {
+              return `${key}=${JSON.stringify(value)}`;
+            } catch (e) {
+              return `${key}=[Complex Object]`;
+            }
+          }
+          return `${key}=${value}`;
+        })
+        .join(' ');
+      
+      contextStr = chalk.cyan(contextStr);
+    }
+    
     const stackStr = entry.stack ? `\n${chalk.gray(entry.stack)}` : '';
     
     return `${timestamp} ${levelColor(levelName)} ${entry.message}${contextStr}${stackStr}`;
@@ -85,7 +109,7 @@ export class ServerLogger implements ILogger {
     return this.currentLevel;
   }
 
-  error(message: string, context?: Record<string, unknown>): void {
+  error(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.ERROR)) {
       const error = context?.error instanceof Error ? context.error as Error : undefined;
       const entry: ServerLogEntry = {
@@ -100,7 +124,7 @@ export class ServerLogger implements ILogger {
     }
   }
 
-  warn(message: string, context?: Record<string, unknown>): void {
+  warn(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.WARN)) {
       const entry: ServerLogEntry = {
         level: LogLevel.WARN,
@@ -113,7 +137,7 @@ export class ServerLogger implements ILogger {
     }
   }
 
-  info(message: string, context?: Record<string, unknown>): void {
+  info(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.INFO)) {
       const entry: ServerLogEntry = {
         level: LogLevel.INFO,
@@ -126,7 +150,7 @@ export class ServerLogger implements ILogger {
     }
   }
 
-  debug(message: string, context?: Record<string, unknown>): void {
+  debug(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
       const entry: ServerLogEntry = {
         level: LogLevel.DEBUG,
@@ -141,8 +165,17 @@ export class ServerLogger implements ILogger {
 }
 
 // Create and export default logger instance
-export const logger = new ServerLogger(
-  process.env.LOG_LEVEL ? 
-    { defaultLevel: parseInt(process.env.LOG_LEVEL, 10) } : 
-    undefined
-); 
+const determineLogLevel = (): LogLevel => {
+  // Check environment variable first
+  if (process.env.LOG_LEVEL && !isNaN(parseInt(process.env.LOG_LEVEL, 10))) {
+    const level = parseInt(process.env.LOG_LEVEL, 10);
+    if (isLogLevel(level)) return level;
+  }
+  
+  // Use development level in development, otherwise INFO
+  return process.env.NODE_ENV === 'development' ? LogLevel.DEBUG : LogLevel.INFO;
+};
+
+export const logger = new ServerLogger({
+  defaultLevel: determineLogLevel()
+}); 

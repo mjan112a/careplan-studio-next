@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowRight, CheckCircle, BarChart2, Upload, PieChart, Users, Play } from "lucide-react"
 import PricingSection from "../components/PricingSection"
 import { getSession } from '@/utils/auth-state';
+import { logDebug, logError } from '@/lib/logging';
 
 export default function Home() {
   const router = useRouter();
@@ -17,10 +18,11 @@ export default function Home() {
         const session = await getSession();
         if (session) {
           // If authenticated, redirect to dashboard
+          logDebug('User authenticated, redirecting from home to dashboard', { userId: session.user?.id });
           router.push('/dashboard');
         }
       } catch (error) {
-        console.error('Error checking authentication:', error);
+        logError('Error checking authentication', error, { page: 'home' });
       }
     };
     

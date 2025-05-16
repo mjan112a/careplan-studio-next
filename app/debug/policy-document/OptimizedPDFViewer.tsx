@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { logger } from '@/lib/logging';
+import { logDebug, logInfo, logWarn, logError } from '@/lib/logging';
 
 interface OptimizedPDFViewerProps {
   pdfDataUrl: string;
@@ -35,10 +35,12 @@ export default function OptimizedPDFViewer({ pdfDataUrl, mimeType }: OptimizedPD
       const blob = new Blob([ab], { type: mimeString });
       objectUrl = URL.createObjectURL(blob);
       
+      logDebug('Created blob URL for PDF', { mimeType: mimeString });
       setBlobUrl(objectUrl);
     } catch (error) {
-      console.error('Error creating blob URL:', error);
+      logError('Error creating blob URL', error, { component: 'OptimizedPDFViewer' });
       // Fallback to data URL if blob creation fails
+      logWarn('Falling back to data URL for PDF display', { mimeType });
       setBlobUrl(pdfDataUrl);
     }
     
@@ -48,18 +50,18 @@ export default function OptimizedPDFViewer({ pdfDataUrl, mimeType }: OptimizedPD
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [pdfDataUrl]);
+  }, [pdfDataUrl, mimeType]);
   
   // Handle iframe load events
   const handleIframeLoad = () => {
     if (iframeRef.current) {
       // Iframe loaded successfully
-      logger.info('PDF displayed successfully in iframe');
+      logInfo('PDF displayed successfully in iframe');
     }
   };
   
   const handleIframeError = () => {
-    logger.error('Failed to load PDF in iframe');
+    logError('Failed to load PDF in iframe', new Error('Iframe loading error'));
   };
   
   if (!blobUrl) {

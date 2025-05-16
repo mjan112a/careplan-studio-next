@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CustomerSubscriptionStatus } from '@/lib/stripe';
 import { fetchCustomerStatus, hasProductAccess, isInTrialPeriod, getExpirationDate } from '@/lib/customer-status';
+import { logger, logError } from '@/lib/logging';
 
 interface CustomerStatusProps {
   email: string;
@@ -23,12 +24,19 @@ export default function CustomerStatus({ email, productId, children }: CustomerS
     async function loadCustomerStatus() {
       try {
         setLoading(true);
+        logger.debug('Loading customer subscription status', { email, productId });
         const customerStatus = await fetchCustomerStatus(email);
         setStatus(customerStatus);
         setError(null);
+        logger.debug('Customer subscription status loaded', { 
+          email, 
+          hasActiveSubscription: customerStatus.hasActiveSubscription,
+          isInTrial: customerStatus.isInTrial
+        });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load customer status');
-        console.error('Error loading customer status:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load customer status';
+        setError(errorMessage);
+        logError('Error loading customer status', err, { email, productId });
       } finally {
         setLoading(false);
       }
@@ -37,7 +45,7 @@ export default function CustomerStatus({ email, productId, children }: CustomerS
     if (email) {
       loadCustomerStatus();
     }
-  }, [email]);
+  }, [email, productId]);
 
   // If loading, show a loading state
   if (loading) {
@@ -58,6 +66,7 @@ export default function CustomerStatus({ email, productId, children }: CustomerS
   if (productId) {
     const hasAccess = hasProductAccess(status, productId);
     if (!hasAccess) {
+      logger.info('Customer lacks access to product', { email, productId });
       return (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <h3 className="text-yellow-800 font-medium">Subscription Required</h3>

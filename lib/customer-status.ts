@@ -1,4 +1,5 @@
 import { CustomerSubscriptionStatus } from './stripe';
+import { logger, logError } from '@/lib/logging';
 
 /**
  * Fetches a customer's subscription status from the API
@@ -22,7 +23,7 @@ export async function fetchCustomerStatus(email: string): Promise<CustomerSubscr
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching customer status:', error);
+    logError('Error fetching customer status', error, { email });
     throw error;
   }
 }

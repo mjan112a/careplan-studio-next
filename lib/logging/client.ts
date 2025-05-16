@@ -5,6 +5,7 @@
  * - Uses browser console methods for client-side logging
  * - Maintains in-memory log storage for client-side debugging
  * - Provides filtering and retrieval of client logs
+ * - Uses structured logging pattern with context separation
  * 
  * Note: This is separate from the server-side logger (lib/logging/server.ts)
  * and is specifically designed for browser environments.
@@ -15,7 +16,9 @@ import {
   BaseLogEntry, 
   ILogger, 
   LoggerConfig, 
-  isLogLevel 
+  isLogLevel,
+  getLogLevelName,
+  LogContext
 } from './types';
 
 // Client-specific log entry interface
@@ -47,6 +50,25 @@ export class ClientLogger implements ILogger {
     return level <= this.currentLevel;
   }
 
+  private formatContextForConsole(context?: LogContext): string {
+    if (!context || Object.keys(context).length === 0) return '';
+    
+    return Object.entries(context)
+      .map(([key, value]) => {
+        if (value === undefined) return `${key}=undefined`;
+        if (value === null) return `${key}=null`;
+        if (typeof value === 'object' && value !== null) {
+          try {
+            return `${key}=${JSON.stringify(value)}`;
+          } catch (e) {
+            return `${key}=[Complex Object]`;
+          }
+        }
+        return `${key}=${value}`;
+      })
+      .join(' ');
+  }
+
   private addLogEntry(entry: ClientLogEntry): void {
     this.logStorage.push(entry);
     
@@ -55,24 +77,44 @@ export class ClientLogger implements ILogger {
       this.logStorage.shift();
     }
     
-    // Format for browser console
-    const logMessage = entry.context ? 
-      [`[${entry.level}] ${entry.message}`, entry.context] :
-      [`[${entry.level}] ${entry.message}`];
+    // Get level name for display
+    const levelLabel = `[${getLogLevelName(entry.level)}]`;
+    
+    // Format context for structured logging
+    const contextStr = this.formatContextForConsole(entry.context);
+    
+    // Base message with level prefix
+    const message = `${levelLabel} ${entry.message}`;
     
     // Log to browser console based on level
     switch (entry.level) {
       case LogLevel.DEBUG:
-        console.debug(...logMessage);
+        if (contextStr) {
+          console.debug(message, contextStr, entry.context);
+        } else {
+          console.debug(message);
+        }
         break;
       case LogLevel.INFO:
-        console.info(...logMessage);
+        if (contextStr) {
+          console.info(message, contextStr, entry.context);
+        } else {
+          console.info(message);
+        }
         break;
       case LogLevel.WARN:
-        console.warn(...logMessage);
+        if (contextStr) {
+          console.warn(message, contextStr, entry.context);
+        } else {
+          console.warn(message);
+        }
         break;
       case LogLevel.ERROR:
-        console.error(...logMessage);
+        if (contextStr) {
+          console.error(message, contextStr, entry.context);
+        } else {
+          console.error(message);
+        }
         break;
     }
   }
@@ -88,7 +130,7 @@ export class ClientLogger implements ILogger {
     return this.currentLevel;
   }
 
-  error(message: string, context?: Record<string, unknown>): void {
+  error(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.ERROR)) {
       this.addLogEntry({
         level: LogLevel.ERROR,
@@ -99,7 +141,7 @@ export class ClientLogger implements ILogger {
     }
   }
 
-  warn(message: string, context?: Record<string, unknown>): void {
+  warn(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.WARN)) {
       this.addLogEntry({
         level: LogLevel.WARN,
@@ -110,7 +152,7 @@ export class ClientLogger implements ILogger {
     }
   }
 
-  info(message: string, context?: Record<string, unknown>): void {
+  info(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.INFO)) {
       this.addLogEntry({
         level: LogLevel.INFO,
@@ -121,7 +163,7 @@ export class ClientLogger implements ILogger {
     }
   }
 
-  debug(message: string, context?: Record<string, unknown>): void {
+  debug(message: string, context?: LogContext): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
       this.addLogEntry({
         level: LogLevel.DEBUG,
@@ -147,8 +189,22 @@ export class ClientLogger implements ILogger {
 }
 
 // Create and export default logger instance
-export const logger = new ClientLogger(
-  typeof window !== 'undefined' && window.localStorage?.getItem('logLevel') 
-    ? { defaultLevel: parseInt(window.localStorage.getItem('logLevel')!, 10) }
-    : undefined
-); 
+const determineClientLogLevel = (): LogLevel => {
+  if (typeof window !== 'undefined') {
+    // Check localStorage first
+    const storedLevel = window.localStorage?.getItem('logLevel');
+    if (storedLevel && !isNaN(parseInt(storedLevel, 10))) {
+      const level = parseInt(storedLevel, 10);
+      if (isLogLevel(level)) return level;
+    }
+    
+    // Use development level in development, otherwise INFO
+    return window.location.hostname === 'localhost' ? LogLevel.DEBUG : LogLevel.INFO;
+  }
+  
+  return LogLevel.INFO;
+};
+
+export const logger = new ClientLogger({
+  defaultLevel: determineClientLogLevel()
+}); 

@@ -52,4 +52,11 @@ export function isLogLevel(level: unknown): level is LogLevel {
 // Get human readable log level name
 export function getLogLevelName(level: LogLevel): string {
   return LogLevel[level];
-} 
+}
+
+// Types for log message templates
+export type LogContext = Record<string, unknown>;
+export type LogPayload = {
+  message: string;
+  context?: LogContext;
+}; 

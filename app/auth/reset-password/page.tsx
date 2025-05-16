@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AuthForm from '@/components/auth/AuthForm';
 import { supabase } from '@/utils/supabase';
+import { logDebug, logError } from '@/lib/logging';
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -19,11 +20,14 @@ export default function ResetPassword() {
         
         // If user is already logged in, redirect to dashboard
         if (session) {
+          logDebug('User already authenticated, redirecting from reset-password to dashboard', { 
+            userId: session.user?.id 
+          });
           router.push('/dashboard');
           return;
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        logError('Error checking session', error, { page: 'reset-password' });
       } finally {
         setLoading(false);
       }

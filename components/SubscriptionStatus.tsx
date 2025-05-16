@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CustomerSubscriptionStatus } from '@/lib/stripe';
 import { fetchCustomerStatus, isInTrialPeriod, getExpirationDate } from '@/lib/customer-status';
+import { logDebug, logError } from '@/lib/logging';
 
 interface SubscriptionStatusProps {
   email: string;
@@ -20,12 +21,20 @@ export default function SubscriptionStatus({ email }: SubscriptionStatusProps) {
     async function loadCustomerStatus() {
       try {
         setLoading(true);
+        logDebug('Loading customer subscription status', { email });
         const customerStatus = await fetchCustomerStatus(email);
         setStatus(customerStatus);
         setError(null);
+        logDebug('Customer subscription status loaded', { 
+          email, 
+          hasActiveSubscription: customerStatus.hasActiveSubscription,
+          isInTrial: customerStatus.isInTrial,
+          productCount: Object.keys(customerStatus.products || {}).length
+        });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load subscription status');
-        console.error('Error loading subscription status:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load subscription status';
+        setError(errorMessage);
+        logError('Error loading subscription status', err, { email });
       } finally {
         setLoading(false);
       }
