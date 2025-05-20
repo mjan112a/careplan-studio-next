@@ -191,6 +191,65 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Check if authenticated user has subscription
+  if (user) {
+    try {
+      // Define paths that should bypass subscription check
+      const SUBSCRIPTION_BYPASS_PATHS = [
+        '/subscribe',
+        '/api/subscribe',
+        '/api/webhooks/stripe',
+        '/auth/update-password',
+        '/api/policy-documents'  // Allow document access for subscription page
+      ];
+
+      const bypassSubscriptionCheck = SUBSCRIPTION_BYPASS_PATHS.some(path => 
+        req.nextUrl.pathname.startsWith(path)
+      );
+
+      // Only check subscription if not on exempt paths
+      if (!bypassSubscriptionCheck) {
+        // Query the user's profile to check subscription status
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('subscription_level')
+          .eq('id', user.id)
+          .single();
+
+        logger.debug('Subscription check', {
+          userId: user.id,
+          subscriptionLevel: profile?.subscription_level,
+          path: req.nextUrl.pathname
+        });
+
+        if (profileError) {
+          logger.error('Error fetching profile for subscription check', {
+            error: profileError.message,
+            userId: user.id
+          });
+        }
+
+        // Redirect to subscribe page if subscription_level is null or empty
+        if (!profile?.subscription_level) {
+          logger.info('Redirecting non-subscribed user to subscription page', {
+            from: req.nextUrl.pathname,
+            userId: user.id
+          });
+          const redirectUrl = req.nextUrl.clone();
+          redirectUrl.pathname = '/subscribe';
+          return NextResponse.redirect(redirectUrl);
+        }
+      }
+    } catch (error) {
+      logger.error('Error during subscription check', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        userId: user.id,
+        path: req.nextUrl.pathname
+      });
+    }
+  }
+
   return res;
 }
 
