@@ -756,7 +756,7 @@ function FinancialSimulator({ router }: { router: any }) {
                 onClick={() => {
                   localStorage.removeItem("isAuthenticated")
                   localStorage.removeItem("username")
-                  router.push("/login")
+                  router.push("/auth/signin")
                 }}
               >
                 <LogOut className="h-4 w-4 mr-2" />

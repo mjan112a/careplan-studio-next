@@ -40,7 +40,7 @@ export default function Home() {
             </Link>
           </div>
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/simulator" className="text-blue-600 font-medium hover:text-blue-800 transition">
+            <Link href="/sign-in" className="text-blue-600 font-medium hover:text-blue-800 transition">
               Simulator Tool
             </Link>
             <Link href="#features" className="text-gray-600 hover:text-blue-600 transition">
@@ -456,7 +456,7 @@ export default function Home() {
               <h3 className="text-white text-lg font-bold mb-4">Product</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/simulator" className="hover:text-white transition">
+                  <Link href="/sign-in" className="hover:text-white transition">
                     Simulator
                   </Link>
                 </li>
