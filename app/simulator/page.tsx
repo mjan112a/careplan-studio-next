@@ -51,10 +51,113 @@ async function fetchPolicyData(docIds: string[]): Promise<PolicyData[] | null> {
     
     const data = await response.json();
     
-    // Extract the processed data from the documents
+    // Log the raw structure of the API response for debugging
+    logger.debug('API Response Structure', {
+      hasDocuments: !!data.documents,
+      documentsCount: data.documents?.length,
+      firstDocumentKeys: data.documents && data.documents.length > 0 ? Object.keys(data.documents[0]) : [],
+      firstDocHasProcessedData: data.documents && data.documents.length > 0 ? !!data.documents[0].processed_data : false,
+      processedDataType: data.documents && data.documents.length > 0 && data.documents[0].processed_data 
+        ? typeof data.documents[0].processed_data 
+        : 'N/A'
+    });
+    
+    // Log all document data for debugging
+    logger.info('Examining API response documents', {
+      count: data.documents.length,
+      documentsWithProcessedData: data.documents.filter((doc: any) => doc.processed_data).length,
+      sampleDoc: data.documents.length > 0 ? {
+        id: data.documents[0].id,
+        processedDataType: typeof data.documents[0].processed_data
+      } : null
+    });
+    
+    // Extract and validate the processed data from the documents
     const policyData = data.documents
       .filter((doc: { processed_data: any }) => doc.processed_data)
-      .map((doc: { processed_data: any }) => doc.processed_data);
+      .map((doc: { processed_data: any; id: string }) => {
+        let processedData = doc.processed_data;
+        
+        // Try parsing the processed_data if it's a string (could be stored as JSON string)
+        if (typeof processedData === 'string') {
+          try {
+            logger.debug('Attempting to parse processed_data string', { 
+              docId: doc.id,
+              sample: processedData.substring(0, 100) + '...' 
+            });
+            processedData = JSON.parse(processedData);
+          } catch (e) {
+            logger.error('Failed to parse processed_data string', { 
+              docId: doc.id,
+              error: e instanceof Error ? e.message : String(e)
+            });
+          }
+        }
+        
+        // Log document structure to help debug
+        logger.debug('Processing document data', {
+          docId: doc.id,
+          hasProcessedData: !!processedData,
+          processedDataType: typeof processedData,
+          hasPolicyLevelInfo: !!processedData?.policy_level_information,
+          hasAnnualData: !!processedData?.annual_policy_data,
+          topLevelKeys: processedData ? Object.keys(processedData) : []
+        });
+        
+        // Check if this is a database record with 'processed_data' as a property rather than the data itself
+        if (processedData && 
+            !processedData.policy_level_information && 
+            !processedData.annual_policy_data && 
+            processedData.processed_data) {
+          logger.debug('Found nested processed_data structure, unwrapping', { docId: doc.id });
+          processedData = processedData.processed_data;
+          
+          // Try parsing again if it's a string
+          if (typeof processedData === 'string') {
+            try {
+              processedData = JSON.parse(processedData);
+            } catch (e) {
+              logger.error('Failed to parse nested processed_data', { docId: doc.id });
+            }
+          }
+        }
+        
+        // Ensure policy has required structure, otherwise create a basic structure
+        if (!processedData || !processedData.policy_level_information || !processedData.annual_policy_data) {
+          logger.warn('Invalid policy data structure', { 
+            docId: doc.id, 
+            processedDataType: typeof processedData,
+            keys: processedData ? Object.keys(processedData) : []
+          });
+          return {
+            policy_level_information: {
+              insured_person_name: 'Unknown',
+              policy_type: 'Unknown',
+              initial_premium: 0,
+              insured_person_age: 65,
+              insured_person_gender: 'Male'
+            },
+            annual_policy_data: [
+              { monthly_benefit_limit: 0, policy_year: 1 }
+            ],
+            _incomplete: true,
+            _original_doc_id: doc.id
+          };
+        }
+        
+        // Validate annual_policy_data is an array
+        if (!Array.isArray(processedData.annual_policy_data)) {
+          logger.warn('annual_policy_data is not an array', { 
+            docId: doc.id,
+            type: typeof processedData.annual_policy_data
+          });
+          processedData.annual_policy_data = [
+            { monthly_benefit_limit: 0, policy_year: 1 }
+          ];
+        }
+        
+        return processedData;
+      });
     
     // Log success with document retrieval details
     logger.info('Policy data retrieval summary', { 
@@ -96,13 +199,26 @@ async function initPolicyData() {
           // Store in window global for use throughout the app
           window._customPolicyData = policyData;
           
-          // Log a summary of each policy
-          const policySummary = policyData.map(policy => ({
-            insured: policy.policy_level_information.insured_person_name,
-            policyType: policy.policy_level_information.policy_type || 'Unknown',
-            premium: policy.policy_level_information.initial_premium,
-            benefit: policy.annual_policy_data[0]?.monthly_benefit_limit * 12
-          }));
+          // Log a summary of each policy with validation
+          const policySummary = policyData.map(policy => {
+            // Validate that the policy has the expected structure
+            if (!policy || !policy.policy_level_information) {
+              logger.warn('Policy data missing expected structure', { policy });
+              return {
+                insured: 'Unknown',
+                policyType: 'Unknown',
+                premium: 0,
+                benefit: 0
+              };
+            }
+            
+            return {
+              insured: policy.policy_level_information.insured_person_name || 'Unknown',
+              policyType: policy.policy_level_information.policy_type || 'Unknown',
+              premium: policy.policy_level_information.initial_premium || 0,
+              benefit: (policy.annual_policy_data && policy.annual_policy_data[0]?.monthly_benefit_limit * 12) || 0
+            };
+          });
           
           logger.info('Simulator initialized with policy data', { 
             count: policyData.length, 
@@ -159,30 +275,70 @@ export default function Home() {
   useEffect(() => {
     setIsMounted(true)
     
-    // Set the force update function
+    // Set the force update function with validation
     window.forceSimulatorUpdate = () => {
-      setPolicyData(window._customPolicyData || null)
+      try {
+        // Validate custom policy data before setting it
+        if (typeof window !== 'undefined' && window._customPolicyData) {
+          // Log the structure to help with debugging
+          logger.debug('Custom policy data structure', {
+            length: window._customPolicyData.length,
+            hasValidStructure: window._customPolicyData.every(p => 
+              p && typeof p === 'object' && 
+              p.policy_level_information && 
+              typeof p.policy_level_information === 'object' &&
+              Array.isArray(p.annual_policy_data)
+            )
+          });
+          
+          setPolicyData(window._customPolicyData);
+        } else {
+          setPolicyData(null);
+        }
+      } catch (error) {
+        logger.error('Error in forceSimulatorUpdate', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        setPolicyData(null);
+      }
     }
     
     // Initialize policy data
     if (!dataInitialized) {
-      initPolicyData()
-      setDataInitialized(true)
+      initPolicyData();
+      setDataInitialized(true);
     }
     
-    // Get policy data from window global if available
-    if (typeof window !== 'undefined' && window._customPolicyData) {
-      setPolicyData(window._customPolicyData)
-    } else {
-      // Use sample data as fallback
-      const sampleData = getFullPolicyData()
-      setPolicyData(sampleData)
+    try {
+      // Get policy data from window global if available
+      if (typeof window !== 'undefined' && window._customPolicyData) {
+        // Log what we're using
+        logger.info('Using custom policy data from window global', {
+          count: window._customPolicyData.length
+        });
+        setPolicyData(window._customPolicyData);
+      } else {
+        // Use sample data as fallback
+        logger.info('No custom policy data available, using sample data');
+        const sampleData = getFullPolicyData();
+        setPolicyData(sampleData);
+      }
+    } catch (error) {
+      // Handle any errors during policy data initialization
+      logger.error('Error setting initial policy data', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      // Safely fallback to sample data
+      const sampleData = getFullPolicyData();
+      setPolicyData(sampleData);
     }
     
     return () => {
       // Cleanup
       if (typeof window !== 'undefined') {
-        window.forceSimulatorUpdate = undefined
+        window.forceSimulatorUpdate = undefined;
       }
     }
   }, [dataInitialized])
@@ -193,18 +349,29 @@ export default function Home() {
   // Initialize person data with policy information, with fallbacks if policy data is missing
   const [person1, setPerson1] = useState<Person>(() => {
     const policy = activePolicyData && activePolicyData.length > 0 ? activePolicyData[0] : null
+    
+    // Validate policy structure before using it
+    const hasPolicyInfo = policy && policy.policy_level_information;
+    const hasAnnualData = policy && policy.annual_policy_data && policy.annual_policy_data.length > 0;
+    
     return {
       ...defaultPerson,
-      name: policy ? policy.policy_level_information.insured_person_name : "Person 1",
-      age: policy ? policy.policy_level_information.insured_person_age : defaultPerson.age,
-      sex: policy
+      name: hasPolicyInfo && policy.policy_level_information.insured_person_name 
+        ? policy.policy_level_information.insured_person_name 
+        : "Person 1",
+      age: hasPolicyInfo && policy.policy_level_information.insured_person_age !== undefined
+        ? policy.policy_level_information.insured_person_age 
+        : defaultPerson.age,
+      sex: hasPolicyInfo && policy.policy_level_information.insured_person_gender
         ? policy.policy_level_information.insured_person_gender.toLowerCase() === "male"
           ? "male"
           : "female"
         : defaultPerson.sex,
-      policyAnnualPremium: policy ? policy.policy_level_information.initial_premium : defaultPerson.policyAnnualPremium,
-      policyBenefitPerYear: policy
-        ? policy.annual_policy_data[0]?.monthly_benefit_limit * 12 || defaultPerson.policyBenefitPerYear
+      policyAnnualPremium: hasPolicyInfo && policy.policy_level_information.initial_premium !== undefined
+        ? policy.policy_level_information.initial_premium 
+        : defaultPerson.policyAnnualPremium,
+      policyBenefitPerYear: hasAnnualData && policy.annual_policy_data[0]?.monthly_benefit_limit !== undefined
+        ? policy.annual_policy_data[0].monthly_benefit_limit * 12 
         : defaultPerson.policyBenefitPerYear,
       ltcEventEnabled: false,
       policyEnabled: false,
@@ -216,18 +383,29 @@ export default function Home() {
 
   const [person2, setPerson2] = useState<Person>(() => {
     const policy = activePolicyData && activePolicyData.length > 1 ? activePolicyData[1] : null
+    
+    // Validate policy structure before using it
+    const hasPolicyInfo = policy && policy.policy_level_information;
+    const hasAnnualData = policy && policy.annual_policy_data && policy.annual_policy_data.length > 0;
+    
     return {
       ...defaultPerson,
-      name: policy ? policy.policy_level_information.insured_person_name : "Person 2",
-      age: policy ? policy.policy_level_information.insured_person_age : defaultPerson.age + 2,
-      sex: policy
+      name: hasPolicyInfo && policy.policy_level_information.insured_person_name 
+        ? policy.policy_level_information.insured_person_name 
+        : "Person 2",
+      age: hasPolicyInfo && policy.policy_level_information.insured_person_age !== undefined
+        ? policy.policy_level_information.insured_person_age 
+        : defaultPerson.age + 2,
+      sex: hasPolicyInfo && policy.policy_level_information.insured_person_gender
         ? policy.policy_level_information.insured_person_gender.toLowerCase() === "male"
           ? "male"
           : "female"
         : "female",
-      policyAnnualPremium: policy ? policy.policy_level_information.initial_premium : defaultPerson.policyAnnualPremium,
-      policyBenefitPerYear: policy
-        ? policy.annual_policy_data[0]?.monthly_benefit_limit * 12 || defaultPerson.policyBenefitPerYear
+      policyAnnualPremium: hasPolicyInfo && policy.policy_level_information.initial_premium !== undefined
+        ? policy.policy_level_information.initial_premium 
+        : defaultPerson.policyAnnualPremium,
+      policyBenefitPerYear: hasAnnualData && policy.annual_policy_data[0]?.monthly_benefit_limit !== undefined
+        ? policy.annual_policy_data[0].monthly_benefit_limit * 12 
         : defaultPerson.policyBenefitPerYear,
       ltcEventEnabled: false,
       policyEnabled: false,

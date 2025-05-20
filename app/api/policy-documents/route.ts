@@ -103,14 +103,54 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    // Make sure processed_data is properly handled for each document
+    const processedDocuments = documents.map(doc => {
+      // Create a shallow copy of the document
+      const processedDoc = {...doc};
+      
+      // If processed_data exists, make sure it's properly formatted
+      if (processedDoc.processed_data) {
+        try {
+          // If it's a string, try to parse it as JSON
+          if (typeof processedDoc.processed_data === 'string') {
+            processedDoc.processed_data = JSON.parse(processedDoc.processed_data);
+          }
+          
+          // Check if annual_policy_data exists and is accessible
+          if (!processedDoc.processed_data.annual_policy_data) {
+            logger.warn('Document missing annual_policy_data', { docId: doc.id });
+          }
+        } catch (parseError) {
+          logger.error('Error processing document data', {
+            docId: doc.id,
+            error: parseError instanceof Error ? parseError.message : String(parseError)
+          });
+        }
+      }
+      
+      return processedDoc;
+    });
+    
     logger.info('Successfully fetched policy documents in bulk', { 
       count: documents.length,
       requestedCount: documentIds.length,
       userId: user.id,
-      dataPresent: documents.map(doc => !!doc.processed_data)
+      dataPresent: processedDocuments.map(doc => !!doc.processed_data),
+      documentStructures: processedDocuments.map(doc => ({
+        id: doc.id,
+        hasProcessedData: !!doc.processed_data,
+        processedDataType: doc.processed_data ? typeof doc.processed_data : 'null',
+        // Include the keys if it's an object to help debugging
+        processedDataKeys: doc.processed_data && typeof doc.processed_data === 'object' 
+          ? Object.keys(doc.processed_data) 
+          : [],
+        hasAnnualPolicyData: doc.processed_data && 
+          typeof doc.processed_data === 'object' && 
+          !!doc.processed_data.annual_policy_data
+      }))
     });
     
-    return NextResponse.json({ documents });
+    return NextResponse.json({ documents: processedDocuments });
   } catch (error) {
     logger.error('Error in policy-documents POST API', {
       error: error instanceof Error ? error.message : String(error),
