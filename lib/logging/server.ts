@@ -241,12 +241,33 @@ export class ServerLogger implements ILogger {
   }
 }
 
+// Flag to track if we've already shown the warning
+let hasShownLogLevelWarning = false;
+
 // Create and export default logger instance
 const determineLogLevel = (): LogLevel => {
-  // Check environment variable first
-  if (process.env.LOG_LEVEL && !isNaN(parseInt(process.env.LOG_LEVEL, 10))) {
-    const level = parseInt(process.env.LOG_LEVEL, 10);
-    if (isLogLevel(level)) return level;
+  // Check for string log level first (like "INFO", "DEBUG")
+  if (process.env.LOG_LEVEL && typeof process.env.LOG_LEVEL === 'string') {
+    const levelName = process.env.LOG_LEVEL.toUpperCase();
+    
+    // Check if the string matches a LogLevel enum name
+    if (levelName === 'ERROR') return LogLevel.ERROR;
+    if (levelName === 'WARN') return LogLevel.WARN;
+    if (levelName === 'INFO') return LogLevel.INFO;
+    if (levelName === 'DEBUG') return LogLevel.DEBUG;
+    
+    // Check if it's a numeric value
+    if (!isNaN(parseInt(process.env.LOG_LEVEL, 10))) {
+      const level = parseInt(process.env.LOG_LEVEL, 10);
+      if (isLogLevel(level)) return level;
+    }
+    
+    // If string doesn't match any level name or valid number, default to INFO
+    if (!hasShownLogLevelWarning) {
+      console.warn(`Invalid LOG_LEVEL value: "${process.env.LOG_LEVEL}". Defaulting to INFO.`);
+      hasShownLogLevelWarning = true;
+    }
+    return LogLevel.INFO;
   }
   
   // Use development level in development, otherwise INFO

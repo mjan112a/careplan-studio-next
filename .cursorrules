@@ -16,7 +16,7 @@ DECISION: Use Node.js Runtime instead of Edge Runtime for all server-side code.
 - Full Node.js API access is available and encouraged
 
 ## Logging Standards
-DECISION: Use chalk-based colorful logging with full stack trace support.
+DECISION: Use ANSI-based colorful logging with full stack trace support.
 - When generating code, add INFO logs for key events in the code.
 - When in scope of important routines/components add key identifiers to context.
 

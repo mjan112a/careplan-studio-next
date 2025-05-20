@@ -188,14 +188,33 @@ export class ClientLogger implements ILogger {
   }
 }
 
+// Flag to track if we've already shown the warning
+let hasShownLogLevelWarning = false;
+
 // Create and export default logger instance
 const determineClientLogLevel = (): LogLevel => {
   if (typeof window !== 'undefined') {
     // Check localStorage first
     const storedLevel = window.localStorage?.getItem('logLevel');
-    if (storedLevel && !isNaN(parseInt(storedLevel, 10))) {
-      const level = parseInt(storedLevel, 10);
-      if (isLogLevel(level)) return level;
+    if (storedLevel) {
+      // Check if it's a string that matches a level name
+      const levelName = storedLevel.toUpperCase();
+      if (levelName === 'ERROR') return LogLevel.ERROR;
+      if (levelName === 'WARN') return LogLevel.WARN;
+      if (levelName === 'INFO') return LogLevel.INFO;
+      if (levelName === 'DEBUG') return LogLevel.DEBUG;
+      
+      // Check if it's a numeric value
+      if (!isNaN(parseInt(storedLevel, 10))) {
+        const level = parseInt(storedLevel, 10);
+        if (isLogLevel(level)) return level;
+      }
+      
+      // If invalid, show warning once
+      if (!hasShownLogLevelWarning) {
+        console.warn(`Invalid logLevel value in localStorage: "${storedLevel}". Defaulting to INFO.`);
+        hasShownLogLevelWarning = true;
+      }
     }
     
     // Use development level in development, otherwise INFO

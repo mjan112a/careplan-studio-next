@@ -1,0 +1,1798 @@
+// Add custom global typings for window object
+declare global {
+  interface Window {
+    _customPolicyData?: PolicyData[];
+  }
+}
+
+import { logger } from '@/lib/logging';
+
+// Policy data types
+export interface PolicyRider {
+  rider_feature_name: string
+  status: string
+  details: string
+  form_number?: string
+  acceleration_percentage_elected?: number
+  monthly_payout_percentage_elected?: number
+  benefit_type?: string
+  irs_qualification?: string
+  elimination_period_days?: string
+}
+
+export interface PolicyLevelInformation {
+  insured_person_name: string
+  insured_person_age: number
+  insured_person_gender: string
+  insured_person_risk_classification: string
+  product_name: string
+  initial_premium: number
+  initial_death_benefit: number
+  policy_type: "traditional" | "hybrid" // Added to distinguish between policy types
+  riders_and_features: PolicyRider[]
+}
+
+export interface AnnualPolicyData {
+  policy_year: number
+  insured_age: number
+  annual_premium: number
+  accumulation_value: number
+  surrender_value: number
+  death_benefit: number
+  acceleration_percentage: number
+  monthly_payout_percentage: number
+  monthly_benefit_limit: number
+  annual_ltc_benefit?: number // Added for hybrid policies
+  total_ltc_benefit?: number // Added for hybrid policies
+  death_benefit_irr?: number // Added for illustration data
+  ltc_benefit_irr?: number // Added for illustration data
+}
+
+export interface PolicyData {
+  policy_level_information: PolicyLevelInformation
+  annual_policy_data: AnnualPolicyData[]
+}
+
+// Extract JSON policy data from text that may be wrapped in markdown code blocks
+function extractPolicyDataFromText(text: string): any[] {
+  try {
+    logger.debug('Attempting to extract policy data from text', {
+      textLength: text.length,
+      hasJsonBlock: text.includes('```json'),
+      sample: text.substring(0, 200) + '...'
+    });
+
+    // Check if the text contains a markdown code block
+    if (text.includes('```json')) {
+      // Extract content between code fences
+      const matches = text.match(/```json\s*([\s\S]*?)\s*```/);
+      
+      logger.debug('Found JSON code block', {
+        hasMatches: !!matches,
+        matchGroupsCount: matches?.length,
+        matchSample: matches && matches[1] ? matches[1].substring(0, 100) + '...' : 'No match found'
+      });
+      
+      if (matches && matches[1]) {
+        // Parse the JSON inside the code block
+        const jsonContent = matches[1].trim();
+        const parsedData = JSON.parse(jsonContent);
+        
+        logger.debug('Successfully parsed JSON from code block', {
+          dataType: Array.isArray(parsedData) ? 'array' : typeof parsedData,
+          dataLength: Array.isArray(parsedData) ? parsedData.length : 'not an array',
+          firstItem: Array.isArray(parsedData) && parsedData.length > 0 ? parsedData[0] : null
+        });
+        
+        return parsedData;
+      }
+    }
+    
+    // If no code block, try parsing the text directly
+    logger.debug('No JSON code block found, attempting to parse text directly');
+    const parsedData = JSON.parse(text);
+    
+    logger.debug('Successfully parsed text directly', {
+      dataType: Array.isArray(parsedData) ? 'array' : typeof parsedData,
+      dataLength: Array.isArray(parsedData) ? parsedData.length : 'not an array'
+    });
+    
+    return parsedData;
+  } catch (error) {
+    logger.error('Failed to extract policy data from text', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return [];
+  }
+}
+
+// Function to get full policy data for display
+export function getFullPolicyData(): PolicyData[] {
+  // Check for custom data in window global
+  if (typeof window !== 'undefined' && window._customPolicyData) {
+    return window._customPolicyData;
+  }
+  
+  // No custom data found, return a deep copy of the sample data
+  return JSON.parse(JSON.stringify(samplePolicyData)) as PolicyData[];
+}
+
+// Sample policy data
+export const samplePolicyData: PolicyData[] = [
+  {
+    policy_level_information: {
+      insured_person_name: "ERIK CLARK",
+      insured_person_age: 50,
+      insured_person_gender: "Male",
+      insured_person_risk_classification: "Standard Non-Nicotine",
+      product_name: "Symetra Protector IUL 6.0 - GPT",
+      initial_premium: 12410.0,
+      initial_death_benefit: 1000000.0,
+      policy_type: "traditional",
+      riders_and_features: [
+        {
+          rider_feature_name: "Accelerated Death Benefit for Chronic Care Advantage Rider",
+          status: "Elected",
+          details:
+            "Allows acceleration of death benefit if insured is certified as chronically ill (unable to perform 2 of 6 ADLs or severe cognitive impairment). Available for an additional cost and requires additional underwriting.",
+          form_number: "ICC23_LE1",
+          acceleration_percentage_elected: 100.0,
+          monthly_payout_percentage_elected: 4.0,
+          benefit_type: "Indemnity (based on no restriction on use of proceeds mentioned)",
+          irs_qualification: "Intended to qualify under IRC Section 101(g)",
+          elimination_period_days:
+            "90 (Certification required for a period of at least 90 days, acts like an elimination period)",
+        },
+        {
+          rider_feature_name: "Accelerated Death Benefit for Terminal Illness Rider",
+          status: "Included (No additional premium)",
+          details:
+            "Allows access up to $500,000 if physician determines insured is terminally ill (less than 12 months to live). Payment discounted by one year of interest.",
+          form_number: "ICC16_LE5",
+        },
+        {
+          rider_feature_name: "Overloan Lapse Protection Rider",
+          status: "Included (No additional cost unless exercised)",
+          details:
+            "Protects policy from inadvertently lapsing due to outstanding loan balance under specific conditions (age 75+, policy in force 15+ years, loan meets threshold).",
+          form_number: "ICC17_LE5",
+        },
+        {
+          rider_feature_name: "Charitable Giving Benefit Rider",
+          status: "Elected (No additional premium)",
+          details:
+            "Pays an additional benefit of $10,000 (1% of initial base policy specified amount, $1,000,000) to a qualified charity upon insured's death.",
+          form_number: "ICC16_LE8",
+        },
+        {
+          rider_feature_name: "Lapse Protection Benefit",
+          status: "Included",
+          details:
+            "Guarantees policy will not enter grace period if Net Cash Surrender Value is insufficient, provided lapse protection requirements are met.",
+        },
+        {
+          rider_feature_name: "Lookback Guarantee",
+          status: "Included",
+          details:
+            "May provide an increase in policy value based on average actual index credits compared to a guarantee rate over resetting 8-year periods.",
+        },
+        {
+          rider_feature_name: "1035 Exchange",
+          status: "Yes",
+          details:
+            "The first year premium shown includes a $150,000.00 1035 Exchange in month 1. Assumed cost basis is $0.00.",
+        },
+        {
+          rider_feature_name: "Policy Tax Qualification",
+          status: "Applicable",
+          details:
+            "Policy illustrated using Guideline Premium Test under IRC Section 7702. Illustrated as non-MEC (Modified Endowment Contract) under IRC Section 7702A, but notes 1035 exchange reduction could potentially trigger MEC in year 1.",
+        },
+      ],
+    },
+    annual_policy_data: [
+      {
+        policy_year: 1,
+        insured_age: 50,
+        annual_premium: 162410.0,
+        accumulation_value: 152517.0,
+        surrender_value: 110687.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 2,
+        insured_age: 51,
+        annual_premium: 12410.0,
+        accumulation_value: 171435.0,
+        surrender_value: 130635.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 3,
+        insured_age: 52,
+        annual_premium: 12410.0,
+        accumulation_value: 191409.0,
+        surrender_value: 151629.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 4,
+        insured_age: 53,
+        annual_premium: 12410.0,
+        accumulation_value: 212524.0,
+        surrender_value: 173774.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 5,
+        insured_age: 54,
+        annual_premium: 12410.0,
+        accumulation_value: 234892.0,
+        surrender_value: 197182.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 6,
+        insured_age: 55,
+        annual_premium: 12410.0,
+        accumulation_value: 258615.0,
+        surrender_value: 224675.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 7,
+        insured_age: 56,
+        annual_premium: 12410.0,
+        accumulation_value: 283853.0,
+        surrender_value: 253683.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 8,
+        insured_age: 57,
+        annual_premium: 12410.0,
+        accumulation_value: 310762.0,
+        surrender_value: 284372.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 9,
+        insured_age: 58,
+        annual_premium: 12410.0,
+        accumulation_value: 339300.0,
+        surrender_value: 316680.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 10,
+        insured_age: 59,
+        annual_premium: 12410.0,
+        accumulation_value: 369565.0,
+        surrender_value: 350715.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 11,
+        insured_age: 60,
+        annual_premium: 12410.0,
+        accumulation_value: 404976.0,
+        surrender_value: 389896.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 12,
+        insured_age: 61,
+        annual_premium: 12410.0,
+        accumulation_value: 442822.0,
+        surrender_value: 431512.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 13,
+        insured_age: 62,
+        annual_premium: 12410.0,
+        accumulation_value: 483298.0,
+        surrender_value: 475758.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 14,
+        insured_age: 63,
+        annual_premium: 12410.0,
+        accumulation_value: 526573.0,
+        surrender_value: 522803.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 15,
+        insured_age: 64,
+        annual_premium: 12410.0,
+        accumulation_value: 572851.0,
+        surrender_value: 572851.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 16,
+        insured_age: 65,
+        annual_premium: 12410.0,
+        accumulation_value: 622333.0,
+        surrender_value: 622333.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 17,
+        insured_age: 66,
+        annual_premium: 12410.0,
+        accumulation_value: 675321.0,
+        surrender_value: 675321.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 18,
+        insured_age: 67,
+        annual_premium: 12410.0,
+        accumulation_value: 732151.0,
+        surrender_value: 732151.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 19,
+        insured_age: 68,
+        annual_premium: 12410.0,
+        accumulation_value: 793205.0,
+        surrender_value: 793205.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 20,
+        insured_age: 69,
+        annual_premium: 12410.0,
+        accumulation_value: 858821.0,
+        surrender_value: 858821.0,
+        death_benefit: 1000000.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 40000.0,
+      },
+      {
+        policy_year: 21,
+        insured_age: 70,
+        annual_premium: 12410.0,
+        accumulation_value: 929488.0,
+        surrender_value: 929488.0,
+        death_benefit: 1068912.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 42756.48,
+      },
+      {
+        policy_year: 22,
+        insured_age: 71,
+        annual_premium: 12410.0,
+        accumulation_value: 1004971.0,
+        surrender_value: 1004971.0,
+        death_benefit: 1135617.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 45424.68,
+      },
+      {
+        policy_year: 23,
+        insured_age: 72,
+        annual_premium: 12410.0,
+        accumulation_value: 1085664.0,
+        surrender_value: 1085664.0,
+        death_benefit: 1205087.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 48203.48,
+      },
+      {
+        policy_year: 24,
+        insured_age: 73,
+        annual_premium: 12410.0,
+        accumulation_value: 1171945.0,
+        surrender_value: 1171945.0,
+        death_benefit: 1277420.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 51096.8,
+      },
+      {
+        policy_year: 25,
+        insured_age: 74,
+        annual_premium: 12410.0,
+        accumulation_value: 1264492.0,
+        surrender_value: 1264492.0,
+        death_benefit: 1353007.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 54120.28,
+      },
+      {
+        policy_year: 26,
+        insured_age: 75,
+        annual_premium: 12410.0,
+        accumulation_value: 1363640.0,
+        surrender_value: 1363640.0,
+        death_benefit: 1431822.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 57272.88,
+      },
+      {
+        policy_year: 27,
+        insured_age: 76,
+        annual_premium: 12410.0,
+        accumulation_value: 1469428.0,
+        surrender_value: 1469428.0,
+        death_benefit: 1542900.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 61716.0,
+      },
+      {
+        policy_year: 28,
+        insured_age: 77,
+        annual_premium: 12410.0,
+        accumulation_value: 1582279.0,
+        surrender_value: 1582279.0,
+        death_benefit: 1661393.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 66455.72,
+      },
+      {
+        policy_year: 29,
+        insured_age: 78,
+        annual_premium: 12410.0,
+        accumulation_value: 1702644.0,
+        surrender_value: 1702644.0,
+        death_benefit: 1787776.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 71511.04,
+      },
+      {
+        policy_year: 30,
+        insured_age: 79,
+        annual_premium: 12410.0,
+        accumulation_value: 1830986.0,
+        surrender_value: 1830986.0,
+        death_benefit: 1922535.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 76901.4,
+      },
+      {
+        policy_year: 31,
+        insured_age: 80,
+        annual_premium: 12410.0,
+        accumulation_value: 1967716.0,
+        surrender_value: 1967716.0,
+        death_benefit: 2066102.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 82644.08,
+      },
+      {
+        policy_year: 32,
+        insured_age: 81,
+        annual_premium: 0.0,
+        accumulation_value: 2100500.0,
+        surrender_value: 2100500.0,
+        death_benefit: 2205525.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 88221.0,
+      },
+      {
+        policy_year: 33,
+        insured_age: 82,
+        annual_premium: 0.0,
+        accumulation_value: 2241773.0,
+        surrender_value: 2241773.0,
+        death_benefit: 2353862.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 94154.48,
+      },
+      {
+        policy_year: 34,
+        insured_age: 83,
+        annual_premium: 0.0,
+        accumulation_value: 2392048.0,
+        surrender_value: 2392048.0,
+        death_benefit: 2511650.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 100466.0,
+      },
+      {
+        policy_year: 35,
+        insured_age: 84,
+        annual_premium: 0.0,
+        accumulation_value: 2551793.0,
+        surrender_value: 2551793.0,
+        death_benefit: 2679383.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 107175.32,
+      },
+      {
+        policy_year: 36,
+        insured_age: 85,
+        annual_premium: 0.0,
+        accumulation_value: 2721408.0,
+        surrender_value: 2721408.0,
+        death_benefit: 2857479.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 114299.16,
+      },
+      {
+        policy_year: 37,
+        insured_age: 86,
+        annual_premium: 0.0,
+        accumulation_value: 2901172.0,
+        surrender_value: 2901172.0,
+        death_benefit: 3046231.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 121849.24,
+      },
+      {
+        policy_year: 38,
+        insured_age: 87,
+        annual_premium: 0.0,
+        accumulation_value: 3091415.0,
+        surrender_value: 3091415.0,
+        death_benefit: 3245986.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 129839.44,
+      },
+      {
+        policy_year: 39,
+        insured_age: 88,
+        annual_premium: 0.0,
+        accumulation_value: 3292433.0,
+        surrender_value: 3292433.0,
+        death_benefit: 3457054.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 138282.16,
+      },
+      {
+        policy_year: 40,
+        insured_age: 89,
+        annual_premium: 0.0,
+        accumulation_value: 3504526.0,
+        surrender_value: 3504526.0,
+        death_benefit: 3679753.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 147190.12,
+      },
+      {
+        policy_year: 41,
+        insured_age: 90,
+        annual_premium: 0.0,
+        accumulation_value: 3727968.0,
+        surrender_value: 3727968.0,
+        death_benefit: 3914366.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 156574.64,
+      },
+      {
+        policy_year: 42,
+        insured_age: 91,
+        annual_premium: 0.0,
+        accumulation_value: 3967917.0,
+        surrender_value: 3967917.0,
+        death_benefit: 4126633.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 165065.32,
+      },
+      {
+        policy_year: 43,
+        insured_age: 92,
+        annual_premium: 0.0,
+        accumulation_value: 4226752.0,
+        surrender_value: 4226752.0,
+        death_benefit: 4353555.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 174142.2,
+      },
+      {
+        policy_year: 44,
+        insured_age: 93,
+        annual_premium: 0.0,
+        accumulation_value: 4507294.0,
+        surrender_value: 4507294.0,
+        death_benefit: 4597440.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 183897.6,
+      },
+      {
+        policy_year: 45,
+        insured_age: 94,
+        annual_premium: 0.0,
+        accumulation_value: 4812890.0,
+        surrender_value: 4812890.0,
+        death_benefit: 4861018.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 194440.72,
+      },
+      {
+        policy_year: 46,
+        insured_age: 95,
+        annual_premium: 0.0,
+        accumulation_value: 5138637.0,
+        surrender_value: 5138637.0,
+        death_benefit: 5190023.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 207600.92,
+      },
+      {
+        policy_year: 47,
+        insured_age: 96,
+        annual_premium: 0.0,
+        accumulation_value: 5485486.0,
+        surrender_value: 5485486.0,
+        death_benefit: 5540341.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 221613.64,
+      },
+      {
+        policy_year: 48,
+        insured_age: 97,
+        annual_premium: 0.0,
+        accumulation_value: 5854610.0,
+        surrender_value: 5854610.0,
+        death_benefit: 5913156.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 236526.24,
+      },
+      {
+        policy_year: 49,
+        insured_age: 98,
+        annual_premium: 0.0,
+        accumulation_value: 6247180.0,
+        surrender_value: 6247180.0,
+        death_benefit: 6309652.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 252386.08,
+      },
+      {
+        policy_year: 50,
+        insured_age: 99,
+        annual_premium: 0.0,
+        accumulation_value: 6664392.0,
+        surrender_value: 6664392.0,
+        death_benefit: 6731036.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 269241.44,
+      },
+      {
+        policy_year: 51,
+        insured_age: 100,
+        annual_premium: 0.0,
+        accumulation_value: 7107525.0,
+        surrender_value: 7107525.0,
+        death_benefit: 7178601.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 287144.04,
+      },
+      {
+        policy_year: 52,
+        insured_age: 101,
+        annual_premium: 0.0,
+        accumulation_value: 7577294.0,
+        surrender_value: 7577294.0,
+        death_benefit: 7653067.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 306122.68,
+      },
+      {
+        policy_year: 53,
+        insured_age: 102,
+        annual_premium: 0.0,
+        accumulation_value: 8074705.0,
+        surrender_value: 8074705.0,
+        death_benefit: 8155452.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 326218.08,
+      },
+      {
+        policy_year: 54,
+        insured_age: 103,
+        annual_premium: 0.0,
+        accumulation_value: 8600685.0,
+        surrender_value: 8600685.0,
+        death_benefit: 8686691.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 347467.64,
+      },
+      {
+        policy_year: 55,
+        insured_age: 104,
+        annual_premium: 0.0,
+        accumulation_value: 9156856.0,
+        surrender_value: 9156856.0,
+        death_benefit: 9248424.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 369936.96,
+      },
+      {
+        policy_year: 56,
+        insured_age: 105,
+        annual_premium: 0.0,
+        accumulation_value: 9743445.0,
+        surrender_value: 9743445.0,
+        death_benefit: 9840879.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 393635.16,
+      },
+      {
+        policy_year: 57,
+        insured_age: 106,
+        annual_premium: 0.0,
+        accumulation_value: 10364484.0,
+        surrender_value: 10364484.0,
+        death_benefit: 10468129.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 418725.16,
+      },
+      {
+        policy_year: 58,
+        insured_age: 107,
+        annual_premium: 0.0,
+        accumulation_value: 11021953.0,
+        surrender_value: 11021953.0,
+        death_benefit: 11132173.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 445286.92,
+      },
+      {
+        policy_year: 59,
+        insured_age: 108,
+        annual_premium: 0.0,
+        accumulation_value: 11718056.0,
+        surrender_value: 11718056.0,
+        death_benefit: 11835236.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 473409.44,
+      },
+      {
+        policy_year: 60,
+        insured_age: 109,
+        annual_premium: 0.0,
+        accumulation_value: 12455265.0,
+        surrender_value: 12455265.0,
+        death_benefit: 12579818.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 503192.72,
+      },
+      {
+        policy_year: 61,
+        insured_age: 110,
+        annual_premium: 0.0,
+        accumulation_value: 13236384.0,
+        surrender_value: 13236384.0,
+        death_benefit: 13368748.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 534749.92,
+      },
+      {
+        policy_year: 62,
+        insured_age: 111,
+        annual_premium: 0.0,
+        accumulation_value: 14064603.0,
+        surrender_value: 14064603.0,
+        death_benefit: 14205249.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 568209.96,
+      },
+      {
+        policy_year: 63,
+        insured_age: 112,
+        annual_premium: 0.0,
+        accumulation_value: 14943538.0,
+        surrender_value: 14943538.0,
+        death_benefit: 15092973.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 603718.92,
+      },
+      {
+        policy_year: 64,
+        insured_age: 113,
+        annual_premium: 0.0,
+        accumulation_value: 15877414.0,
+        surrender_value: 15877414.0,
+        death_benefit: 16036188.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 641447.52,
+      },
+      {
+        policy_year: 65,
+        insured_age: 114,
+        annual_premium: 0.0,
+        accumulation_value: 16869666.0,
+        surrender_value: 16869666.0,
+        death_benefit: 17038362.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 681534.48,
+      },
+      {
+        policy_year: 66,
+        insured_age: 115,
+        annual_premium: 0.0,
+        accumulation_value: 17923942.0,
+        surrender_value: 17923942.0,
+        death_benefit: 18103181.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 724127.24,
+      },
+      {
+        policy_year: 67,
+        insured_age: 116,
+        annual_premium: 0.0,
+        accumulation_value: 19044120.0,
+        surrender_value: 19044120.0,
+        death_benefit: 19234561.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 769382.44,
+      },
+      {
+        policy_year: 68,
+        insured_age: 117,
+        annual_premium: 0.0,
+        accumulation_value: 20234319.0,
+        surrender_value: 20234319.0,
+        death_benefit: 20436662.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 817466.48,
+      },
+      {
+        policy_year: 69,
+        insured_age: 118,
+        annual_premium: 0.0,
+        accumulation_value: 21498916.0,
+        surrender_value: 21498916.0,
+        death_benefit: 21713905.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 868556.2,
+      },
+      {
+        policy_year: 70,
+        insured_age: 119,
+        annual_premium: 0.0,
+        accumulation_value: 22842562.0,
+        surrender_value: 22842562.0,
+        death_benefit: 23070987.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 922839.48,
+      },
+    ],
+  },
+  // Updated Person 2's policy data with the new information from the illustration
+  {
+    policy_level_information: {
+      insured_person_name: "JANE SMITH",
+      insured_person_age: 60,
+      insured_person_gender: "Female",
+      insured_person_risk_classification: "Preferred Non-Nicotine",
+      product_name: "OneAmerica Asset-Care IV",
+      initial_premium: 10000.0,
+      initial_death_benefit: 119171.0,
+      policy_type: "hybrid", // This is a hybrid policy
+      riders_and_features: [
+        {
+          rider_feature_name: "Long-Term Care Benefit Rider",
+          status: "Elected",
+          details:
+            "Provides monthly LTC benefits when insured is unable to perform 2 of 6 ADLs or has cognitive impairment.",
+          form_number: "LTC-01",
+          acceleration_percentage_elected: 100.0,
+          monthly_payout_percentage_elected: 4.0,
+          benefit_type: "Reimbursement",
+          irs_qualification: "Intended to qualify under IRC Section 7702B",
+          elimination_period_days: "90 days",
+        },
+        {
+          rider_feature_name: "3% Compound Inflation Protection",
+          status: "Elected",
+          details: "Annual 3% increase in LTC benefits to help keep pace with rising costs of care.",
+          form_number: "INF-01",
+        },
+        {
+          rider_feature_name: "Guaranteed Continuation of Benefits",
+          status: "Included",
+          details: "Guarantees policy will remain in force as long as premiums are paid as scheduled.",
+        },
+        {
+          rider_feature_name: "Return of Premium Option",
+          status: "Not Elected",
+          details: "Option to receive a return of premiums paid (minus any benefits received) upon surrender.",
+        },
+        {
+          rider_feature_name: "Policy Tax Qualification",
+          status: "Applicable",
+          details: "Illustrated as tax-qualified long-term care insurance under IRC Section 7702B.",
+        },
+      ],
+    },
+    annual_policy_data: [
+      {
+        policy_year: 1,
+        insured_age: 60,
+        annual_premium: 10000.0,
+        accumulation_value: 8000.0,
+        surrender_value: 7000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 4965.0,
+        annual_ltc_benefit: 59586.0,
+        total_ltc_benefit: 316348.0,
+        death_benefit_irr: 1091.7,
+        ltc_benefit_irr: 502.1,
+      },
+      {
+        policy_year: 2,
+        insured_age: 61,
+        annual_premium: 10000.0,
+        accumulation_value: 15000.0,
+        surrender_value: 14000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 5114.0,
+        annual_ltc_benefit: 61373.0,
+        total_ltc_benefit: 325838.0,
+        death_benefit_irr: 198.8,
+        ltc_benefit_irr: 151.9,
+      },
+      {
+        policy_year: 3,
+        insured_age: 62,
+        annual_premium: 10000.0,
+        accumulation_value: 22000.0,
+        surrender_value: 21000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 5268.0,
+        annual_ltc_benefit: 63214.0,
+        total_ltc_benefit: 335613.0,
+        death_benefit_irr: 87.1,
+        ltc_benefit_irr: 86.6,
+      },
+      {
+        policy_year: 4,
+        insured_age: 63,
+        annual_premium: 10000.0,
+        accumulation_value: 29000.0,
+        surrender_value: 28000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 5426.0,
+        annual_ltc_benefit: 65111.0,
+        total_ltc_benefit: 345681.0,
+        death_benefit_irr: 48.9,
+        ltc_benefit_irr: 59.6,
+      },
+      {
+        policy_year: 5,
+        insured_age: 64,
+        annual_premium: 10000.0,
+        accumulation_value: 36000.0,
+        surrender_value: 35000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 5589.0,
+        annual_ltc_benefit: 67064.0,
+        total_ltc_benefit: 356052.0,
+        death_benefit_irr: 30.5,
+        ltc_benefit_irr: 44.8,
+      },
+      {
+        policy_year: 6,
+        insured_age: 65,
+        annual_premium: 10000.0,
+        accumulation_value: 43000.0,
+        surrender_value: 42000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 5756.0,
+        annual_ltc_benefit: 69076.0,
+        total_ltc_benefit: 366733.0,
+        death_benefit_irr: 20.0,
+        ltc_benefit_irr: 35.4,
+      },
+      {
+        policy_year: 7,
+        insured_age: 66,
+        annual_premium: 10000.0,
+        accumulation_value: 50000.0,
+        surrender_value: 49000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 5929.0,
+        annual_ltc_benefit: 71149.0,
+        total_ltc_benefit: 377735.0,
+        death_benefit_irr: 13.3,
+        ltc_benefit_irr: 29.1,
+      },
+      {
+        policy_year: 8,
+        insured_age: 67,
+        annual_premium: 10000.0,
+        accumulation_value: 57000.0,
+        surrender_value: 56000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 6107.0,
+        annual_ltc_benefit: 73283.0,
+        total_ltc_benefit: 389067.0,
+        death_benefit_irr: 8.8,
+        ltc_benefit_irr: 24.5,
+      },
+      {
+        policy_year: 9,
+        insured_age: 68,
+        annual_premium: 10000.0,
+        accumulation_value: 64000.0,
+        surrender_value: 63000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 6290.0,
+        annual_ltc_benefit: 75482.0,
+        total_ltc_benefit: 400739.0,
+        death_benefit_irr: 5.6,
+        ltc_benefit_irr: 21.5,
+      },
+      {
+        policy_year: 10,
+        insured_age: 69,
+        annual_premium: 10000.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 6479.0,
+        annual_ltc_benefit: 77746.0,
+        total_ltc_benefit: 412762.0,
+        death_benefit_irr: 3.2,
+        ltc_benefit_irr: 19.2,
+      },
+      {
+        policy_year: 11,
+        insured_age: 70,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 6673.0,
+        annual_ltc_benefit: 80079.0,
+        total_ltc_benefit: 425144.0,
+        death_benefit_irr: 2.7,
+        ltc_benefit_irr: 17.4,
+      },
+      {
+        policy_year: 12,
+        insured_age: 71,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 6873.0,
+        annual_ltc_benefit: 82481.0,
+        total_ltc_benefit: 437899.0,
+        death_benefit_irr: 2.3,
+        ltc_benefit_irr: 15.9,
+      },
+      {
+        policy_year: 13,
+        insured_age: 72,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 7080.0,
+        annual_ltc_benefit: 84956.0,
+        total_ltc_benefit: 451036.0,
+        death_benefit_irr: 2.1,
+        ltc_benefit_irr: 14.7,
+      },
+      {
+        policy_year: 14,
+        insured_age: 73,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 7292.0,
+        annual_ltc_benefit: 87504.0,
+        total_ltc_benefit: 464567.0,
+        death_benefit_irr: 1.9,
+        ltc_benefit_irr: 13.7,
+      },
+      {
+        policy_year: 15,
+        insured_age: 74,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 7511.0,
+        annual_ltc_benefit: 90130.0,
+        total_ltc_benefit: 478504.0,
+        death_benefit_irr: 1.7,
+        ltc_benefit_irr: 12.9,
+      },
+      {
+        policy_year: 16,
+        insured_age: 75,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 7736.0,
+        annual_ltc_benefit: 92834.0,
+        total_ltc_benefit: 492859.0,
+        death_benefit_irr: 1.5,
+        ltc_benefit_irr: 12.2,
+      },
+      {
+        policy_year: 17,
+        insured_age: 76,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 7968.0,
+        annual_ltc_benefit: 95619.0,
+        total_ltc_benefit: 507645.0,
+        death_benefit_irr: 1.4,
+        ltc_benefit_irr: 11.5,
+      },
+      {
+        policy_year: 18,
+        insured_age: 77,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 8207.0,
+        annual_ltc_benefit: 98487.0,
+        total_ltc_benefit: 522874.0,
+        death_benefit_irr: 1.3,
+        ltc_benefit_irr: 11.0,
+      },
+      {
+        policy_year: 19,
+        insured_age: 78,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 8453.0,
+        annual_ltc_benefit: 101442.0,
+        total_ltc_benefit: 538560.0,
+        death_benefit_irr: 1.2,
+        ltc_benefit_irr: 10.5,
+      },
+      {
+        policy_year: 20,
+        insured_age: 79,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 8707.0,
+        annual_ltc_benefit: 104485.0,
+        total_ltc_benefit: 554717.0,
+        death_benefit_irr: 1.1,
+        ltc_benefit_irr: 10.1,
+      },
+      {
+        policy_year: 21,
+        insured_age: 80,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 8968.0,
+        annual_ltc_benefit: 107620.0,
+        total_ltc_benefit: 571358.0,
+        death_benefit_irr: 1.1,
+        ltc_benefit_irr: 9.7,
+      },
+      {
+        policy_year: 22,
+        insured_age: 81,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 9237.0,
+        annual_ltc_benefit: 110848.0,
+        total_ltc_benefit: 588499.0,
+        death_benefit_irr: 1.0,
+        ltc_benefit_irr: 9.4,
+      },
+      {
+        policy_year: 23,
+        insured_age: 82,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 9515.0,
+        annual_ltc_benefit: 114174.0,
+        total_ltc_benefit: 606154.0,
+        death_benefit_irr: 1.0,
+        ltc_benefit_irr: 9.0,
+      },
+      {
+        policy_year: 24,
+        insured_age: 83,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 9800.0,
+        annual_ltc_benefit: 117599.0,
+        total_ltc_benefit: 624339.0,
+        death_benefit_irr: 0.9,
+        ltc_benefit_irr: 8.8,
+      },
+      {
+        policy_year: 25,
+        insured_age: 84,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 10094.0,
+        annual_ltc_benefit: 121127.0,
+        total_ltc_benefit: 643069.0,
+        death_benefit_irr: 0.9,
+        ltc_benefit_irr: 8.5,
+      },
+      {
+        policy_year: 26,
+        insured_age: 85,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 10397.0,
+        annual_ltc_benefit: 124761.0,
+        total_ltc_benefit: 662361.0,
+        death_benefit_irr: 0.8,
+        ltc_benefit_irr: 8.3,
+      },
+      {
+        policy_year: 27,
+        insured_age: 86,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 10709.0,
+        annual_ltc_benefit: 128504.0,
+        total_ltc_benefit: 682232.0,
+        death_benefit_irr: 0.8,
+        ltc_benefit_irr: 8.1,
+      },
+      {
+        policy_year: 28,
+        insured_age: 87,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 11030.0,
+        annual_ltc_benefit: 132359.0,
+        total_ltc_benefit: 702699.0,
+        death_benefit_irr: 0.8,
+        ltc_benefit_irr: 7.9,
+      },
+      {
+        policy_year: 29,
+        insured_age: 88,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 11361.0,
+        annual_ltc_benefit: 136330.0,
+        total_ltc_benefit: 723780.0,
+        death_benefit_irr: 0.7,
+        ltc_benefit_irr: 7.7,
+      },
+      {
+        policy_year: 30,
+        insured_age: 89,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 11702.0,
+        annual_ltc_benefit: 140420.0,
+        total_ltc_benefit: 745493.0,
+        death_benefit_irr: 0.7,
+        ltc_benefit_irr: 7.5,
+      },
+      {
+        policy_year: 31,
+        insured_age: 90,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 12053.0,
+        annual_ltc_benefit: 144633.0,
+        total_ltc_benefit: 767858.0,
+        death_benefit_irr: 0.7,
+        ltc_benefit_irr: 7.3,
+      },
+      {
+        policy_year: 32,
+        insured_age: 91,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 12414.0,
+        annual_ltc_benefit: 148972.0,
+        total_ltc_benefit: 790894.0,
+        death_benefit_irr: 0.6,
+        ltc_benefit_irr: 7.2,
+      },
+      {
+        policy_year: 33,
+        insured_age: 92,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 12787.0,
+        annual_ltc_benefit: 153441.0,
+        total_ltc_benefit: 814620.0,
+        death_benefit_irr: 0.6,
+        ltc_benefit_irr: 7.1,
+      },
+      {
+        policy_year: 34,
+        insured_age: 93,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 13170.0,
+        annual_ltc_benefit: 158044.0,
+        total_ltc_benefit: 839059.0,
+        death_benefit_irr: 0.6,
+        ltc_benefit_irr: 6.9,
+      },
+      {
+        policy_year: 35,
+        insured_age: 94,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 13565.0,
+        annual_ltc_benefit: 162786.0,
+        total_ltc_benefit: 864231.0,
+        death_benefit_irr: 0.6,
+        ltc_benefit_irr: 6.8,
+      },
+      {
+        policy_year: 36,
+        insured_age: 95,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 13972.0,
+        annual_ltc_benefit: 167669.0,
+        total_ltc_benefit: 890158.0,
+        death_benefit_irr: 0.6,
+        ltc_benefit_irr: 6.7,
+      },
+      {
+        policy_year: 41,
+        insured_age: 100,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 16198.0,
+        annual_ltc_benefit: 194375.0,
+        total_ltc_benefit: 1031937.0,
+        death_benefit_irr: 0.5,
+        ltc_benefit_irr: 6.2,
+      },
+      {
+        policy_year: 46,
+        insured_age: 105,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 18778.0,
+        annual_ltc_benefit: 225334.0,
+        total_ltc_benefit: 1196297.0,
+        death_benefit_irr: 0.4,
+        ltc_benefit_irr: 5.8,
+      },
+      {
+        policy_year: 51,
+        insured_age: 110,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 21769.0,
+        annual_ltc_benefit: 261225.0,
+        total_ltc_benefit: 1386836.0,
+        death_benefit_irr: 0.4,
+        ltc_benefit_irr: 5.5,
+      },
+      {
+        policy_year: 56,
+        insured_age: 115,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 25236.0,
+        annual_ltc_benefit: 302831.0,
+        total_ltc_benefit: 1607723.0,
+        death_benefit_irr: 0.3,
+        ltc_benefit_irr: 5.3,
+      },
+      {
+        policy_year: 61,
+        insured_age: 120,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 29255.0,
+        annual_ltc_benefit: 351065.0,
+        total_ltc_benefit: 1863792.0,
+        death_benefit_irr: 0.3,
+        ltc_benefit_irr: 5.1,
+      },
+      {
+        policy_year: 66,
+        insured_age: 125,
+        annual_premium: 0.0,
+        accumulation_value: 71000.0,
+        surrender_value: 70000.0,
+        death_benefit: 119171.0,
+        acceleration_percentage: 100.0,
+        monthly_payout_percentage: 4.0,
+        monthly_benefit_limit: 33915.0,
+        annual_ltc_benefit: 406981.0,
+        total_ltc_benefit: 2160646.0,
+        death_benefit_irr: 0.3,
+        ltc_benefit_irr: 2.3,
+      },
+    ],
+  },
+]
+
+// Function to get policy benefit for a specific age
+export function getPolicyBenefitForAge(policyData: PolicyData[], personIndex: number, age: number): number {
+  if (!policyData || policyData.length <= personIndex || personIndex < 0) {
+    return 0 // Return 0 if policy data is missing
+  }
+
+  const policy = policyData[personIndex]
+
+  // Check if this is a hybrid policy
+  const isHybridPolicy = policy.policy_level_information.policy_type === "hybrid"
+
+  const annualData = policy.annual_policy_data.find((data) => data.insured_age === age)
+  if (annualData) {
+    // For hybrid policies, use the annual LTC benefit if available
+    if (isHybridPolicy && annualData.annual_ltc_benefit) {
+      return annualData.annual_ltc_benefit
+    }
+    // Otherwise use the monthly benefit * 12
+    return annualData.monthly_benefit_limit * 12
+  }
+
+  // If we don't find an exact age match, find the closest age that's less than or equal to the target age
+  const closestData = policy.annual_policy_data
+    .filter((data) => data.insured_age <= age)
+    .sort((a, b) => b.insured_age - a.insured_age)[0]
+
+  if (closestData) {
+    // For hybrid policies, use the annual LTC benefit if available
+    if (isHybridPolicy && closestData.annual_ltc_benefit) {
+      return closestData.annual_ltc_benefit
+    }
+    // Otherwise use the monthly benefit * 12
+    return closestData.monthly_benefit_limit * 12
+  }
+
+  return 0 // Default if no data found
+}
+
+// Function to get total LTC benefit for a specific age (for hybrid policies)
+export function getTotalLTCBenefitForAge(policyData: PolicyData[], personIndex: number, age: number): number {
+  if (!policyData || policyData.length <= personIndex || personIndex < 0) {
+    return 0 // Return 0 if policy data is missing
+  }
+
+  const policy = policyData[personIndex]
+
+  // Check if this is a hybrid policy
+  const isHybridPolicy = policy.policy_level_information.policy_type === "hybrid"
+
+  // If not a hybrid policy, return 0
+  if (!isHybridPolicy) {
+    return 0
+  }
+
+  const annualData = policy.annual_policy_data.find((data) => data.insured_age === age)
+  if (annualData && annualData.total_ltc_benefit) {
+    return annualData.total_ltc_benefit
+  }
+
+  // If we don't find an exact age match, find the closest age that's less than or equal to the target age
+  const closestData = policy.annual_policy_data
+    .filter((data) => data.insured_age <= age)
+    .sort((a, b) => b.insured_age - a.insured_age)[0]
+
+  if (closestData && closestData.total_ltc_benefit) {
+    return closestData.total_ltc_benefit
+  }
+
+  return 0 // Default if no data found
+}
+
+// Function to get policy premium for a specific age
+export function getPolicyPremiumForAge(policyData: PolicyData[], personIndex: number, age: number): number {
+  if (!policyData || policyData.length <= personIndex || personIndex < 0) {
+    return 0 // Return 0 if policy data is missing
+  }
+
+  const policy = policyData[personIndex]
+  const annualData = policy.annual_policy_data.find((data) => data.insured_age === age)
+  if (annualData) {
+    return annualData.annual_premium
+  }
+
+  // If we don't find an exact age match, find the closest age that's less than or equal to the target age
+  const closestData = policy.annual_policy_data
+    .filter((data) => data.insured_age <= age)
+    .sort((a, b) => b.insured_age - a.insured_age)[0]
+
+  if (closestData) {
+    return closestData.annual_premium
+  }
+
+  return 0 // Default if no data found
+}
+
+// Function to get policy cash value for a specific age
+export function getPolicyCashValueForAge(policyData: PolicyData[], personIndex: number, age: number): number {
+  if (!policyData || policyData.length <= personIndex || personIndex < 0) {
+    return 0 // Return 0 if policy data is missing
+  }
+
+  const policy = policyData[personIndex]
+  const annualData = policy.annual_policy_data.find((data) => data.insured_age === age)
+  if (annualData) {
+    return annualData.surrender_value
+  }
+
+  // If we don't find an exact age match, find the closest age that's less than or equal to the target age
+  const closestData = policy.annual_policy_data
+    .filter((data) => data.insured_age <= age)
+    .sort((a, b) => b.insured_age - a.insured_age)[0]
+
+  if (closestData) {
+    return closestData.surrender_value
+  }
+
+  return 0 // Default if no data found
+}
+
+// Function to get policy death benefit for a specific age
+export function getPolicyDeathBenefitForAge(policyData: PolicyData[], personIndex: number, age: number): number {
+  if (!policyData || policyData.length <= personIndex || personIndex < 0) {
+    return 0 // Return 0 if policy data is missing
+  }
+
+  const policy = policyData[personIndex]
+  const annualData = policy.annual_policy_data.find((data) => data.insured_age === age)
+  if (annualData) {
+    return annualData.death_benefit
+  }
+
+  // If we don't find an exact age match, find the closest age that's less than or equal to the target age
+  const closestData = policy.annual_policy_data
+    .filter((data) => data.insured_age <= age)
+    .sort((a, b) => b.insured_age - a.insured_age)[0]
+
+  if (closestData) {
+    return closestData.death_benefit
+  }
+
+  return 0 // Default if no data found
+}
+
+// Function to get policy data for a specific person
+export function getPolicyDataForPerson(personIndex: number): PolicyData | null {
+  if (personIndex >= 0 && personIndex < samplePolicyData.length) {
+    return samplePolicyData[personIndex]
+  }
+  return null
+}

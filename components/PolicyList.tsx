@@ -1,8 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Loader2, CheckCircle2, Trash2, MousePointer, Eye } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
+import { logger } from '@/lib/logging';
+import { useRouter } from 'next/navigation';
 
 export interface PolicyDocument {
   id: string;
@@ -33,7 +35,7 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   // Fetch policies for the current client
   useEffect(() => {
@@ -86,36 +88,42 @@ export const PolicyList: React.FC<PolicyListProps> = ({ currentClient, onProcess
     );
   };
 
-  const approvedDocs = policies.filter(p => p.approved && p.processed_data);
+  // Get all approved documents, regardless of whether they have processed data
+  const approvedDocs = policies.filter(p => p.approved);
+  
+  // Navigation handler for simulator with document IDs
   const handleDiscuss = () => {
-    if (!formRef.current) return;
-    // Set the hidden input value to the JSON string of processed_data array
-    (formRef.current.elements.namedItem('data') as HTMLInputElement).value = JSON.stringify(approvedDocs.map(p => p.processed_data));
-    formRef.current.submit();
+    // Get approved document IDs
+    const docIds = approvedDocs.map(p => p.id);
+    
+    if (docIds.length === 0) {
+      toast.error('No approved policies to discuss');
+      return;
+    }
+    
+    logger.info('Sending policy documents to simulator', { 
+      documentCount: docIds.length, 
+      documentIds: docIds 
+    });
+    
+    // Navigate to simulator with document IDs as comma-separated list in query string
+    // No need for JSON.stringify which adds extra quotes
+    router.push(`/simulator?doc_ids=${docIds.join(',')}`);
   };
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Policy List</h3>
-        <form
-          ref={formRef}
-          method="POST"
-          action="/simulationTarget"
-          className="m-0"
+        <Button
+          onClick={handleDiscuss}
+          disabled={approvedDocs.length === 0}
+          className="ml-2 bg-gradient-to-r from-green-400 to-green-600 text-white font-bold shadow-lg hover:from-green-500 hover:to-green-700 transition-all px-6 py-2 rounded-full border-2 border-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <input type="hidden" name="data" />
-          <Button
-            type="button"
-            onClick={handleDiscuss}
-            disabled={approvedDocs.length === 0}
-            className="ml-2 bg-gradient-to-r from-green-400 to-green-600 text-white font-bold shadow-lg hover:from-green-500 hover:to-green-700 transition-all px-6 py-2 rounded-full border-2 border-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5" /> Discuss
-            </span>
-          </Button>
-        </form>
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5" /> Discuss
+          </span>
+        </Button>
       </div>
       {loading && <div className="text-blue-600 flex items-center gap-2"><Loader2 className="animate-spin" /> Loading...</div>}
       {error && <div className="text-red-600">{error}</div>}

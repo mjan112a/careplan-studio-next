@@ -54,6 +54,76 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST: Bulk fetch policy documents by ID list
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    
+    // Require authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      logger.error('No user found in authenticated session');
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+    
+    // Parse request body
+    const { documentIds } = await req.json();
+    
+    logger.info('Bulk fetching policy documents', { 
+      documentIds, 
+      count: documentIds?.length || 0,
+      userId: user.id 
+    });
+    
+    if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+      return NextResponse.json(
+        { error: 'Invalid document IDs provided' },
+        { status: 400 }
+      );
+    }
+    
+    // Query the policy_documents table to get the documents with these IDs
+    // Only return documents that belong to the authenticated user
+    const { data: documents, error } = await supabase
+      .from('policy_documents')
+      .select('*')
+      .in('id', documentIds)
+      .eq('user_id', user.id);
+    
+    if (error) {
+      logger.error('Error fetching policy documents', { 
+        error: error.message,
+        documentIds,
+        userId: user.id
+      });
+      
+      return NextResponse.json(
+        { error: 'Failed to fetch policy documents' },
+        { status: 500 }
+      );
+    }
+    
+    logger.info('Successfully fetched policy documents in bulk', { 
+      count: documents.length,
+      requestedCount: documentIds.length,
+      userId: user.id,
+      dataPresent: documents.map(doc => !!doc.processed_data)
+    });
+    
+    return NextResponse.json({ documents });
+  } catch (error) {
+    logger.error('Error in policy-documents POST API', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 // Helper function to get a document with its metadata
 async function getDocumentWithMetadata(supabase: any, documentId: string) {
   // Fetch the document
