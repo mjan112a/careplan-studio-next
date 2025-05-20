@@ -3,7 +3,7 @@
  * 
  * Design Decisions:
  * - Uses Node.js runtime for full API access and better debugging
- * - Implements chalk for colorful, readable output
+ * - Uses ANSI color codes directly for reliable terminal coloring
  * - Includes stack trace parsing for detailed context
  * - Supports multiple log levels with environment-based configuration
  * - Uses structured logging pattern with context separation
@@ -14,7 +14,6 @@
 
 export const runtime = 'nodejs';
 
-import chalk from 'chalk';
 import { format as formatDate } from 'date-fns';
 import { 
   LogLevel, 
@@ -33,6 +32,33 @@ interface ServerLogEntry extends BaseLogEntry {
   pid?: number;
 }
 
+// ANSI color codes for terminal output
+const COLORS = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  underscore: '\x1b[4m',
+  
+  black: '\x1b[30m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  gray: '\x1b[90m',
+  
+  bgBlack: '\x1b[40m',
+  bgRed: '\x1b[41m',
+  bgGreen: '\x1b[42m',
+  bgYellow: '\x1b[43m',
+  bgBlue: '\x1b[44m',
+  bgMagenta: '\x1b[45m',
+  bgCyan: '\x1b[46m',
+  bgWhite: '\x1b[47m'
+};
+
 const DEFAULT_CONFIG: LoggerConfig = {
   defaultLevel: LogLevel.INFO,
   format: {
@@ -43,13 +69,50 @@ const DEFAULT_CONFIG: LoggerConfig = {
   }
 };
 
+// Sensitive keys that should be truncated in logs
+const SENSITIVE_KEYS = ['token', 'password', 'secret', 'auth', 'key', 'cookie', 'value'];
+const MAX_SENSITIVE_LENGTH = 20;
+
+/**
+ * Sanitizes potentially sensitive values for logging
+ * @param key The key of the value being sanitized
+ * @param value The value to sanitize
+ * @returns Sanitized value
+ */
+function sanitizeValue(key: string, value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  
+  // Check if this is a key that might contain sensitive data
+  const lowerKey = key.toLowerCase();
+  const isSensitive = SENSITIVE_KEYS.some(k => lowerKey.includes(k));
+  
+  if (isSensitive && value.length > MAX_SENSITIVE_LENGTH) {
+    return value.substring(0, MAX_SENSITIVE_LENGTH) + '...';
+  }
+  
+  return value;
+}
+
 export class ServerLogger implements ILogger {
   private currentLevel: LogLevel;
   private config: LoggerConfig;
+  private enableColors: boolean;
 
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.currentLevel = this.config.defaultLevel || LogLevel.INFO;
+    
+    // Check if colors should be enabled (can be forced with env var)
+    this.enableColors = 
+      !!this.config.format?.showColors && 
+      (process.env.FORCE_LOGGER_COLORS === 'true' || 
+       process.env.FORCE_COLOR !== undefined);
+  }
+
+  private colorize(text: string, color: keyof typeof COLORS): string {
+    return this.enableColors 
+      ? COLORS[color] + text + COLORS.reset
+      : text;
   }
 
   private shouldLog(level: LogLevel): boolean {
@@ -57,19 +120,25 @@ export class ServerLogger implements ILogger {
   }
 
   private formatMessage(entry: ServerLogEntry): string {
-    const timestamp = chalk.gray(formatDate(
-      new Date(entry.timestamp),
-      this.config.format?.timestamp || DEFAULT_CONFIG.format!.timestamp!
-    ));
+    const timestamp = this.colorize(
+      formatDate(
+        new Date(entry.timestamp),
+        this.config.format?.timestamp || DEFAULT_CONFIG.format!.timestamp!
+      ),
+      'gray'
+    );
 
-    const levelColor = {
-      [LogLevel.ERROR]: chalk.red,
-      [LogLevel.WARN]: chalk.yellow,
-      [LogLevel.INFO]: chalk.blue,
-      [LogLevel.DEBUG]: chalk.gray
-    }[entry.level];
+    const levelColors: Record<LogLevel, keyof typeof COLORS> = {
+      [LogLevel.ERROR]: 'red',
+      [LogLevel.WARN]: 'yellow',
+      [LogLevel.INFO]: 'blue',
+      [LogLevel.DEBUG]: 'gray'
+    };
     
-    const levelName = `[${getLogLevelName(entry.level)}]`;
+    const levelName = this.colorize(
+      `[${getLogLevelName(entry.level)}]`, 
+      levelColors[entry.level]
+    );
     
     // Format context as key=value pairs for better readability
     let contextStr = '';
@@ -79,23 +148,31 @@ export class ServerLogger implements ILogger {
           // Format special cases
           if (value === undefined) return `${key}=undefined`;
           if (value === null) return `${key}=null`;
-          if (typeof value === 'object' && value !== null) {
+          
+          // Sanitize potentially sensitive values
+          const sanitizedValue = sanitizeValue(key, value);
+          
+          if (typeof sanitizedValue === 'object' && sanitizedValue !== null) {
             try {
-              return `${key}=${JSON.stringify(value)}`;
+              // Also sanitize nested objects
+              const jsonStr = JSON.stringify(sanitizedValue, (k, v) => sanitizeValue(k, v));
+              return `${key}=${jsonStr}`;
             } catch (e) {
               return `${key}=[Complex Object]`;
             }
           }
-          return `${key}=${value}`;
+          return `${key}=${sanitizedValue}`;
         })
         .join(' ');
       
-      contextStr = chalk.cyan(contextStr);
+      contextStr = this.colorize(contextStr, 'cyan');
     }
     
-    const stackStr = entry.stack ? `\n${chalk.gray(entry.stack)}` : '';
+    const stackStr = entry.stack 
+      ? `\n${this.colorize(entry.stack, 'gray')}`
+      : '';
     
-    return `${timestamp} ${levelColor(levelName)} ${entry.message}${contextStr}${stackStr}`;
+    return `${timestamp} ${levelName} ${entry.message}${contextStr}${stackStr}`;
   }
 
   setLogLevel(level: LogLevel): void {
@@ -176,6 +253,7 @@ const determineLogLevel = (): LogLevel => {
   return process.env.NODE_ENV === 'development' ? LogLevel.DEBUG : LogLevel.INFO;
 };
 
+// Create a properly configured logger instance
 export const logger = new ServerLogger({
   defaultLevel: determineLogLevel()
 }); 

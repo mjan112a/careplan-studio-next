@@ -55,12 +55,14 @@ export async function middleware(req: NextRequest) {
         get(name: string) {
           const cookie = req.cookies.get(name);
           cookieOperations.push({ operation: 'get', name });
-          logger.debug('Getting cookie', { 
-            name, 
-            exists: !!cookie,
-            value: process.env.NODE_ENV === 'development' ? cookie?.value : '[redacted]',
-            isAuthCookie: name.endsWith('-auth-token')
-          });
+          if (!!cookie) {
+            logger.debug('Found cookie', { 
+              name, 
+              exists: !!cookie,
+              value: process.env.NODE_ENV === 'development' ? cookie?.value : '[redacted]',
+              isAuthCookie: name.endsWith('-auth-token')
+            });
+          }
           return cookie?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
@@ -106,7 +108,7 @@ export async function middleware(req: NextRequest) {
   let user = null;
   try {
     const { data: { user: authUser }, error } = await supabase.auth.getUser();
-    logger.debug('Auth user', { authUser, error })
+    logger.debug('Auth user', { id: authUser?.id, email: authUser?.email, error })
     // If there's an auth error or no user, and we're not on a public path, redirect
     if ((error || !authUser) && !isPublicPath) {
       logger.info('Auth check failed, redirecting to sign in', {
@@ -145,11 +147,12 @@ export async function middleware(req: NextRequest) {
   }
 
   // Log all cookie operations that occurred during the entire middleware execution
-  logger.debug('Final Supabase cookie operations', {
-    operations: cookieOperations,
-    allCookieNames: Array.from(new Set(cookieOperations.map(op => op.name))),
-    authCookieNames: Array.from(new Set(cookieOperations.map(op => op.name).filter(name => name.endsWith('-auth-token'))))
-  });
+  // Very chatty -- disabled
+  // logger.debug('Final Supabase cookie operations', {
+  //   operations: cookieOperations,
+  //   allCookieNames: Array.from(new Set(cookieOperations.map(op => op.name))),
+  //   authCookieNames: Array.from(new Set(cookieOperations.map(op => op.name).filter(name => name.endsWith('-auth-token'))))
+  // });
 
   // If not authenticated and not on a public path, redirect to sign in
   if (!user && !isPublicPath) {

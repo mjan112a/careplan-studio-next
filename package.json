@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:colors": "FORCE_COLOR=3 FORCE_LOGGER_COLORS=true next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
