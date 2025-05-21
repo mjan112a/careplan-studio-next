@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import PersonForm from "@/components/person-form"
 import { AssetProjectionChart } from "@/components/asset-projection-chart"
 import { IncomeExpenseChart } from "@/components/income-expense-chart"
@@ -21,7 +22,7 @@ import { PolicyDataDebug } from "@/components/policy-data-debug"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { PolicyLoanChart } from "@/components/policy-loan-chart"
 import { CustomGuidedTour, WelcomeModal } from "@/components/custom-guided-tour"
-import { HelpCircle } from "lucide-react"
+import { HelpCircle, RotateCcw } from "lucide-react"
 import { PolicyGrowthChart } from "@/components/policy-growth-chart"
 import { PolicyComparisonChart } from "@/components/policy-comparison-chart"
 import { FinancialCalculationDebug } from "@/components/financial-calculation-debug"
@@ -46,9 +47,10 @@ declare global {
 export default function Home() {
   const [useActualPolicy, setUseActualPolicy] = useState(true)
   const [shiftPolicyDataYear, setShiftPolicyDataYear] = useState(false)
+  const [useEmbellishment, setUseEmbellishment] = useState(true)
   
   // Use our new hook to get policy data
-  const { policyData, loading } = usePolicyData()
+  const { policyData, loading } = usePolicyData(useEmbellishment)
   
   // Chart visibility toggles
   const [showPolicyBenefits, setShowPolicyBenefits] = useState(true)
@@ -298,6 +300,17 @@ export default function Home() {
   const householdLegacyAssetsWithoutInsurance =
     person1LegacyAssetsWithoutInsurance + person2LegacyAssetsWithoutInsurance
 
+  // Handle data reset
+  const handleDataReset = () => {
+    if (typeof window !== 'undefined') {
+      // Clear the cached policy data
+      window._customPolicyData = undefined;
+      
+      // Reload the page to fetch fresh data
+      window.location.reload();
+    }
+  }
+
   // Show loading state while policy data is being fetched
   if (loading) {
     return (
@@ -353,6 +366,37 @@ export default function Home() {
             </Label>
           </div>
           */}
+          
+          {/* Add embellishment toggle if we have incomplete policy data */}
+          {policyData && policyData.some(policy => policy._incomplete) && (
+            <div className="flex items-center space-x-2">
+              <Switch id="useEmbellishment" checked={useEmbellishment} onCheckedChange={setUseEmbellishment} />
+              <Label htmlFor="useEmbellishment" className="flex items-center">
+                Enhance Policy Data
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 ml-1 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        Fills in missing policy data fields with sample values for better simulation.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </Label>
+            </div>
+          )}
+
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={handleDataReset} 
+            title="Reset Policy Data"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
 
           <ThemeToggle />
         </div>
