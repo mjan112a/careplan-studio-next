@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency } from "@/utils/format"
 import type { Person } from "@/types/person"
-import { getFullPolicyData } from "@/types/policy-data"
+import { getSamplePolicyData } from "@/types/policy-data"
 
 interface InitialAssetCalculationProps {
   person: Person
@@ -16,7 +16,7 @@ export function InitialAssetCalculation({ person, personIndex = 0 }: InitialAsse
   const [activeTab, setActiveTab] = useState<string>("with-policy")
 
   // Get policy data
-  const policyData = getFullPolicyData()
+  const policyData = getSamplePolicyData()
   const hasPolicyData = policyData && policyData.length > personIndex && personIndex >= 0
   const personPolicy = hasPolicyData ? policyData[personIndex] : null
 

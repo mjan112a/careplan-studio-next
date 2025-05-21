@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { getFullPolicyData } from "@/types/policy-data"
+import { getSamplePolicyData } from "@/types/policy-data"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface PolicyDataDebugProps {
@@ -12,7 +12,7 @@ interface PolicyDataDebugProps {
 
 export function PolicyDataDebug({ shiftPolicyYear = false }: PolicyDataDebugProps) {
   const [showData, setShowData] = useState(false)
-  const policyData = getFullPolicyData()
+  const policyData = getSamplePolicyData()
 
   // Adjust policy years if shift is enabled
   const adjustedPolicyData = shiftPolicyYear

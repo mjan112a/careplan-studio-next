@@ -1,5 +1,5 @@
 import type { Person } from "@/types/person"
-import { getFullPolicyData, getTotalLTCBenefitForAge } from "@/types/policy-data"
+import { getSamplePolicyData, getTotalLTCBenefitForAge } from "@/types/policy-data"
 import { logger } from "@/lib/logging"
 
 export interface YearlyFinancialData {
@@ -48,7 +48,7 @@ export function calculateFinancialProjection(
   // Get policy data - prefer window global to ensure consistency across the application
   const policyData = typeof window !== 'undefined' && window._customPolicyData 
     ? window._customPolicyData 
-    : getFullPolicyData()
+    : getSamplePolicyData()
   
   // Get policy data summary for this calculation
   const hasPolicyData = policyData && policyData.length > personIndex && personIndex >= 0

@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getFullPolicyData } from "@/types/policy-data"
+import { getSamplePolicyData } from "@/types/policy-data"
 import type { Person } from "@/types/person"
 
 interface AIAnalysisProps {
@@ -15,7 +15,7 @@ interface AIAnalysisProps {
 
 export function AIAnalysis({ person1, person2 }: AIAnalysisProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const policyData = getFullPolicyData()
+  const policyData = getSamplePolicyData()
 
   // Get policy information for each person
   const person1Policy = policyData && policyData.length > 0 ? policyData[0] : null

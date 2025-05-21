@@ -16,7 +16,7 @@ import { Documentation } from "@/components/documentation"
 import { type Person, defaultPerson } from "@/types/person"
 import { calculateFinancialProjection, calculateHouseholdProjection } from "@/utils/financial-calculations"
 import { formatCurrency } from "@/utils/format"
-import { getFullPolicyData } from "@/types/policy-data"
+import { getSamplePolicyData } from "@/types/policy-data"
 import { PolicyDataDebug } from "@/components/policy-data-debug"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { PolicyLoanChart } from "@/components/policy-loan-chart"
@@ -25,228 +25,15 @@ import { HelpCircle } from "lucide-react"
 import { PolicyGrowthChart } from "@/components/policy-growth-chart"
 import { PolicyComparisonChart } from "@/components/policy-comparison-chart"
 import { FinancialCalculationDebug } from "@/components/financial-calculation-debug"
-import { PolicyData } from "@/types/policy-data"
+import { PolicyData } from "@/types/simulator-interfaces"
 
 // Import the new tax visualization components
 import { TaxImpactVisualization } from "@/components/tax-impact-visualization"
 import { TaxEfficiencyAdvisor } from "@/components/tax-efficiency-advisor"
 import { logger } from '@/lib/logging'
 
-// Function to fetch policy data from document IDs
-async function fetchPolicyData(docIds: string[]): Promise<PolicyData[] | null> {
-  try {
-    logger.info('Fetching policy data', { count: docIds.length });
-    
-    const response = await fetch('/api/policy-documents', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ documentIds: docIds }),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch policy data: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // Log the raw structure of the API response for debugging
-    logger.debug('API Response Structure', {
-      hasDocuments: !!data.documents,
-      documentsCount: data.documents?.length,
-      firstDocumentKeys: data.documents && data.documents.length > 0 ? Object.keys(data.documents[0]) : [],
-      firstDocHasProcessedData: data.documents && data.documents.length > 0 ? !!data.documents[0].processed_data : false,
-      processedDataType: data.documents && data.documents.length > 0 && data.documents[0].processed_data 
-        ? typeof data.documents[0].processed_data 
-        : 'N/A'
-    });
-    
-    // Log all document data for debugging
-    logger.info('Examining API response documents', {
-      count: data.documents.length,
-      documentsWithProcessedData: data.documents.filter((doc: any) => doc.processed_data).length,
-      sampleDoc: data.documents.length > 0 ? {
-        id: data.documents[0].id,
-        processedDataType: typeof data.documents[0].processed_data
-      } : null
-    });
-    
-    // Extract and validate the processed data from the documents
-    const policyData = data.documents
-      .filter((doc: { processed_data: any }) => doc.processed_data)
-      .map((doc: { processed_data: any; id: string }) => {
-        let processedData = doc.processed_data;
-        
-        // Try parsing the processed_data if it's a string (could be stored as JSON string)
-        if (typeof processedData === 'string') {
-          try {
-            logger.debug('Attempting to parse processed_data string', { 
-              docId: doc.id,
-              sample: processedData.substring(0, 100) + '...' 
-            });
-            processedData = JSON.parse(processedData);
-          } catch (e) {
-            logger.error('Failed to parse processed_data string', { 
-              docId: doc.id,
-              error: e instanceof Error ? e.message : String(e)
-            });
-          }
-        }
-        
-        // Log document structure to help debug
-        logger.debug('Processing document data', {
-          docId: doc.id,
-          hasProcessedData: !!processedData,
-          processedDataType: typeof processedData,
-          hasPolicyLevelInfo: !!processedData?.policy_level_information,
-          hasAnnualData: !!processedData?.annual_policy_data,
-          topLevelKeys: processedData ? Object.keys(processedData) : []
-        });
-        
-        // Check if this is a database record with 'processed_data' as a property rather than the data itself
-        if (processedData && 
-            !processedData.policy_level_information && 
-            !processedData.annual_policy_data && 
-            processedData.processed_data) {
-          logger.debug('Found nested processed_data structure, unwrapping', { docId: doc.id });
-          processedData = processedData.processed_data;
-          
-          // Try parsing again if it's a string
-          if (typeof processedData === 'string') {
-            try {
-              processedData = JSON.parse(processedData);
-            } catch (e) {
-              logger.error('Failed to parse nested processed_data', { docId: doc.id });
-            }
-          }
-        }
-        
-        // Ensure policy has required structure, otherwise create a basic structure
-        if (!processedData || !processedData.policy_level_information || !processedData.annual_policy_data) {
-          logger.warn('Invalid policy data structure', { 
-            docId: doc.id, 
-            processedDataType: typeof processedData,
-            keys: processedData ? Object.keys(processedData) : []
-          });
-          return {
-            policy_level_information: {
-              insured_person_name: 'Unknown',
-              policy_type: 'Unknown',
-              initial_premium: 0,
-              insured_person_age: 65,
-              insured_person_gender: 'Male'
-            },
-            annual_policy_data: [
-              { monthly_benefit_limit: 0, policy_year: 1 }
-            ],
-            _incomplete: true,
-            _original_doc_id: doc.id
-          };
-        }
-        
-        // Validate annual_policy_data is an array
-        if (!Array.isArray(processedData.annual_policy_data)) {
-          logger.warn('annual_policy_data is not an array', { 
-            docId: doc.id,
-            type: typeof processedData.annual_policy_data
-          });
-          processedData.annual_policy_data = [
-            { monthly_benefit_limit: 0, policy_year: 1 }
-          ];
-        }
-        
-        return processedData;
-      });
-    
-    // Log success with document retrieval details
-    logger.info('Policy data retrieval summary', { 
-      requestedCount: docIds.length,
-      receivedCount: data.documents.length,
-      usableCount: policyData.length,
-      success: policyData.length > 0
-    });
-    
-    return policyData.length > 0 ? policyData : null;
-  } catch (error) {
-    logger.error('Error fetching policy data', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    return null;
-  }
-}
-
-// Initialize policy data
-async function initPolicyData() {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    // Check for document IDs only in URL parameters
-    const params = new URLSearchParams(window.location.search);
-    const docIdsParam = params.get('doc_ids');
-    
-    if (docIdsParam) {
-      try {
-        // Parse the comma-separated document IDs
-        const docIds = docIdsParam.split(',').filter(id => id.trim() !== '');
-        logger.info('Found document IDs in URL', { count: docIds.length });
-        
-        // Fetch the policy data for these documents
-        const policyData = await fetchPolicyData(docIds);
-        
-        if (policyData && policyData.length > 0) {
-          // Store in window global for use throughout the app
-          window._customPolicyData = policyData;
-          
-          // Log a summary of each policy with validation
-          const policySummary = policyData.map(policy => {
-            // Validate that the policy has the expected structure
-            if (!policy || !policy.policy_level_information) {
-              logger.warn('Policy data missing expected structure', { policy });
-              return {
-                insured: 'Unknown',
-                policyType: 'Unknown',
-                premium: 0,
-                benefit: 0
-              };
-            }
-            
-            return {
-              insured: policy.policy_level_information.insured_person_name || 'Unknown',
-              policyType: policy.policy_level_information.policy_type || 'Unknown',
-              premium: policy.policy_level_information.initial_premium || 0,
-              benefit: (policy.annual_policy_data && policy.annual_policy_data[0]?.monthly_benefit_limit * 12) || 0
-            };
-          });
-          
-          logger.info('Simulator initialized with policy data', { 
-            count: policyData.length, 
-            policies: policySummary 
-          });
-          
-          // Force a re-render by setting state
-          if (typeof window.forceSimulatorUpdate === 'function') {
-            window.forceSimulatorUpdate();
-          }
-          
-          return;
-        }
-      } catch (e) {
-        logger.error('Failed to parse document IDs from URL', {
-          error: e instanceof Error ? e.message : String(e)
-        });
-      }
-    }
-    
-    logger.info('No document IDs found in URL, using sample policy data');
-  } catch (error) {
-    logger.error('Error initializing policy data', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    });
-  }
-}
+// Import our policy data hook
+import { usePolicyData } from '@/lib/policy-data'
 
 // Define the global forceUpdate function for type safety
 declare global {
@@ -259,9 +46,10 @@ declare global {
 export default function Home() {
   const [useActualPolicy, setUseActualPolicy] = useState(true)
   const [shiftPolicyDataYear, setShiftPolicyDataYear] = useState(false)
-  const [policyData, setPolicyData] = useState<any[] | null>(null)
-  const [dataInitialized, setDataInitialized] = useState(false)
-
+  
+  // Use our new hook to get policy data
+  const { policyData, loading } = usePolicyData()
+  
   // Chart visibility toggles
   const [showPolicyBenefits, setShowPolicyBenefits] = useState(true)
   const [showPolicyComparison, setShowPolicyComparison] = useState(true)
@@ -271,80 +59,8 @@ export default function Home() {
   const [runTour, setRunTour] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
-  // Initialize data and provide a way to force update from global scope
-  useEffect(() => {
-    setIsMounted(true)
-    
-    // Set the force update function with validation
-    window.forceSimulatorUpdate = () => {
-      try {
-        // Validate custom policy data before setting it
-        if (typeof window !== 'undefined' && window._customPolicyData) {
-          // Log the structure to help with debugging
-          logger.debug('Custom policy data structure', {
-            length: window._customPolicyData.length,
-            hasValidStructure: window._customPolicyData.every(p => 
-              p && typeof p === 'object' && 
-              p.policy_level_information && 
-              typeof p.policy_level_information === 'object' &&
-              Array.isArray(p.annual_policy_data)
-            )
-          });
-          
-          setPolicyData(window._customPolicyData);
-        } else {
-          setPolicyData(null);
-        }
-      } catch (error) {
-        logger.error('Error in forceSimulatorUpdate', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-        setPolicyData(null);
-      }
-    }
-    
-    // Initialize policy data
-    if (!dataInitialized) {
-      initPolicyData();
-      setDataInitialized(true);
-    }
-    
-    try {
-      // Get policy data from window global if available
-      if (typeof window !== 'undefined' && window._customPolicyData) {
-        // Log what we're using
-        logger.info('Using custom policy data from window global', {
-          count: window._customPolicyData.length
-        });
-        setPolicyData(window._customPolicyData);
-      } else {
-        // Use sample data as fallback
-        logger.info('No custom policy data available, using sample data');
-        const sampleData = getFullPolicyData();
-        setPolicyData(sampleData);
-      }
-    } catch (error) {
-      // Handle any errors during policy data initialization
-      logger.error('Error setting initial policy data', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      
-      // Safely fallback to sample data
-      const sampleData = getFullPolicyData();
-      setPolicyData(sampleData);
-    }
-    
-    return () => {
-      // Cleanup
-      if (typeof window !== 'undefined') {
-        window.forceSimulatorUpdate = undefined;
-      }
-    }
-  }, [dataInitialized])
-
-  // Use policy data from state
-  const activePolicyData = policyData || getFullPolicyData()
+  // Use policy data from state or fallback to sample data
+  const activePolicyData = policyData
 
   // Initialize person data with policy information, with fallbacks if policy data is missing
   const [person1, setPerson1] = useState<Person>(() => {
@@ -415,17 +131,47 @@ export default function Home() {
     }
   })
 
-  // Check if tour has been completed on component mount
+  // Initialize client-side features once mounted
   useEffect(() => {
     setIsMounted(true)
-
-    // Only run client-side code after component is mounted
+    
+    // Set the force update function with validation
+    window.forceSimulatorUpdate = () => {
+      try {
+        // Validate custom policy data before setting it
+        if (typeof window !== 'undefined' && window._customPolicyData) {
+          // Log the structure to help with debugging
+          logger.debug('Custom policy data structure', {
+            length: window._customPolicyData.length,
+            hasValidStructure: window._customPolicyData.every(p => 
+              p && typeof p === 'object' && 
+              p.policy_level_information && 
+              typeof p.policy_level_information === 'object' &&
+              Array.isArray(p.annual_policy_data)
+            )
+          });
+        }
+      } catch (error) {
+        logger.error('Error in forceSimulatorUpdate', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+    
+    // Check if tour has been completed
     if (typeof window !== "undefined") {
       const hasCompletedTour = localStorage.getItem("ltcSimulator_tourCompleted") === "true"
 
       // Show welcome modal for first-time users after a short delay
       if (!hasCompletedTour) {
         setTimeout(() => setShowWelcomeModal(true), 1000)
+      }
+    }
+    
+    return () => {
+      // Cleanup
+      if (typeof window !== 'undefined') {
+        window.forceSimulatorUpdate = undefined;
       }
     }
   }, [])
@@ -551,6 +297,18 @@ export default function Home() {
 
   const householdLegacyAssetsWithoutInsurance =
     person1LegacyAssetsWithoutInsurance + person2LegacyAssetsWithoutInsurance
+
+  // Show loading state while policy data is being fetched
+  if (loading) {
+    return (
+      <main className="container mx-auto py-8">
+        <div className="flex flex-col items-center justify-center h-[50vh]">
+          <h2 className="text-2xl font-semibold mb-4">Loading policy data...</h2>
+          <p className="text-muted-foreground">Please wait while we fetch your policy information.</p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="container mx-auto py-8">
