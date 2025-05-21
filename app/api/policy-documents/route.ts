@@ -117,8 +117,8 @@ export async function POST(req: NextRequest) {
           }
           
           // Check if annual_policy_data exists and is accessible
-          if (!processedDoc.processed_data.annual_policy_data) {
-            logger.warn('Document missing annual_policy_data', { docId: doc.id });
+          if (!processedDoc.processed_data.candidates) {
+            logger.warn('Document missing annual_policy_data (no candidates)', { docId: doc.id });
           }
         } catch (parseError) {
           logger.error('Error processing document data', {
@@ -145,8 +145,7 @@ export async function POST(req: NextRequest) {
           ? Object.keys(doc.processed_data) 
           : [],
         hasAnnualPolicyData: doc.processed_data && 
-          typeof doc.processed_data === 'object' && 
-          !!doc.processed_data.annual_policy_data
+          typeof doc.processed_data === 'object' 
       }))
     });
     

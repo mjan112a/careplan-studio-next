@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Next.js: Start Development Server",
+      "type": "npm",
+      "script": "dev",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "detail": "next dev"
+    },
+    {
+      "label": "Next.js: Start Development Server with Colors",
+      "type": "npm",
+      "script": "dev:colors",
+      "problemMatcher": [],
+      "detail": "FORCE_COLOR=3 FORCE_LOGGER_COLORS=true next dev"
+    },
+    {
+      "label": "Next.js: Build for Production",
+      "type": "npm",
+      "script": "build",
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "next build"
+    },
+    {
+      "label": "Next.js: Start Production Server",
+      "type": "npm",
+      "script": "start",
+      "problemMatcher": [],
+      "detail": "next start"
+    }
+  ]
+} 
