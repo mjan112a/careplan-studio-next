@@ -12,7 +12,7 @@ import {
   getLtcMaxValue,
   getAgeRange,
 } from "./utils/chart-utils"
-import PersonForm from "./components/person-form"
+import { PersonForm } from "./components/person-form"
 import KeySliders from "./components/key-sliders"
 import IncomeChart from "./components/income-chart"
 import AssetChart from "./components/asset-chart"
