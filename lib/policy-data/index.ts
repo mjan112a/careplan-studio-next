@@ -10,10 +10,10 @@ import { getSamplePolicyData } from '@/types/policy-data';
 export function mapProcessedDataToPolicyData(
   processedData: any, 
   index: number = 0, 
-  useEmbellishment: boolean = false
+  mergeSampleData: boolean = false
 ): PolicyData {
   // If we should embellish with sample data, start with the sample data as a base
-  const sampleData = useEmbellishment ? getSamplePolicyData()[index < getSamplePolicyData().length ? index : 0] : null;
+  const sampleData = mergeSampleData ? getSamplePolicyData()[index < getSamplePolicyData().length ? index : 0] : null;
   
   try {
     // If the data is already in the correct format, just return it
@@ -103,22 +103,22 @@ export function mapProcessedDataToPolicyData(
             };
             
             // Add optional fields for hybrid policies if available
-            if (yearData.annual_ltc_benefit !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.annual_ltc_benefit !== undefined)) {
+            if (yearData.annual_ltc_benefit !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.annual_ltc_benefit !== undefined)) {
               mappedYearData.annual_ltc_benefit = yearData.annual_ltc_benefit || 
                 (sampleData?.annual_policy_data[yearData.policy_year - 1]?.annual_ltc_benefit);
             }
             
-            if (yearData.total_ltc_benefit !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.total_ltc_benefit !== undefined)) {
+            if (yearData.total_ltc_benefit !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.total_ltc_benefit !== undefined)) {
               mappedYearData.total_ltc_benefit = yearData.total_ltc_benefit || 
                 (sampleData?.annual_policy_data[yearData.policy_year - 1]?.total_ltc_benefit);
             }
             
-            if (yearData.death_benefit_irr !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.death_benefit_irr !== undefined)) {
+            if (yearData.death_benefit_irr !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.death_benefit_irr !== undefined)) {
               mappedYearData.death_benefit_irr = yearData.death_benefit_irr || 
                 (sampleData?.annual_policy_data[yearData.policy_year - 1]?.death_benefit_irr);
             }
             
-            if (yearData.ltc_benefit_irr !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.ltc_benefit_irr !== undefined)) {
+            if (yearData.ltc_benefit_irr !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.ltc_benefit_irr !== undefined)) {
               mappedYearData.ltc_benefit_irr = yearData.ltc_benefit_irr || 
                 (sampleData?.annual_policy_data[yearData.policy_year - 1]?.ltc_benefit_irr);
             }
@@ -187,22 +187,22 @@ export function mapProcessedDataToPolicyData(
         };
         
         // Add optional fields for hybrid policies if available
-        if (yearData.annual_ltc_benefit !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.annual_ltc_benefit !== undefined)) {
+        if (yearData.annual_ltc_benefit !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.annual_ltc_benefit !== undefined)) {
           mappedYearData.annual_ltc_benefit = yearData.annual_ltc_benefit || 
             (sampleData?.annual_policy_data[yearData.policy_year - 1]?.annual_ltc_benefit);
         }
         
-        if (yearData.total_ltc_benefit !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.total_ltc_benefit !== undefined)) {
+        if (yearData.total_ltc_benefit !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.total_ltc_benefit !== undefined)) {
           mappedYearData.total_ltc_benefit = yearData.total_ltc_benefit || 
             (sampleData?.annual_policy_data[yearData.policy_year - 1]?.total_ltc_benefit);
         }
         
-        if (yearData.death_benefit_irr !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.death_benefit_irr !== undefined)) {
+        if (yearData.death_benefit_irr !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.death_benefit_irr !== undefined)) {
           mappedYearData.death_benefit_irr = yearData.death_benefit_irr || 
             (sampleData?.annual_policy_data[yearData.policy_year - 1]?.death_benefit_irr);
         }
         
-        if (yearData.ltc_benefit_irr !== undefined || (useEmbellishment && sampleData?.annual_policy_data[yearData.policy_year - 1]?.ltc_benefit_irr !== undefined)) {
+        if (yearData.ltc_benefit_irr !== undefined || (mergeSampleData && sampleData?.annual_policy_data[yearData.policy_year - 1]?.ltc_benefit_irr !== undefined)) {
           mappedYearData.ltc_benefit_irr = yearData.ltc_benefit_irr || 
             (sampleData?.annual_policy_data[yearData.policy_year - 1]?.ltc_benefit_irr);
         }
@@ -241,7 +241,7 @@ export function mapProcessedDataToPolicyData(
 /**
  * Fetches policy data for the provided document IDs
  */
-export async function fetchPolicyData(docIds: string[], useEmbellishment: boolean = false): Promise<PolicyData[] | null> {
+export async function fetchPolicyData(docIds: string[], mergeSampleData: boolean = false): Promise<PolicyData[] | null> {
   try {
     logger.info('Fetching policy data', { docIds });
     
@@ -281,7 +281,7 @@ export async function fetchPolicyData(docIds: string[], useEmbellishment: boolea
           isGeminiFormat: doc.processed_data && doc.processed_data.candidates ? true : false
         });
         
-        const mappedData = mapProcessedDataToPolicyData(doc.processed_data, index, useEmbellishment);
+        const mappedData = mapProcessedDataToPolicyData(doc.processed_data, index, mergeSampleData);
         return {
           ...mappedData,
           _original_doc_id: doc.id
@@ -353,7 +353,7 @@ interface UsePolicyDataResult {
   error: Error | null;
 }
 
-export function usePolicyData(useEmbellishment: boolean = false): UsePolicyDataResult {
+export function usePolicyData(mergeSampleData: boolean = false): UsePolicyDataResult {
   const [policyData, setPolicyData] = useState<PolicyData[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
@@ -374,7 +374,7 @@ export function usePolicyData(useEmbellishment: boolean = false): UsePolicyDataR
         const docIds = getDocumentIdsFromUrl();
         
         if (docIds && docIds.length > 0) {
-          const data = await fetchPolicyData(docIds, useEmbellishment);
+          const data = await fetchPolicyData(docIds, mergeSampleData);
           setPolicyData(data);
         } else {
           // No document IDs found, use sample data
@@ -394,7 +394,10 @@ export function usePolicyData(useEmbellishment: boolean = false): UsePolicyDataR
     }
     
     initPolicyData();
-  }, [useEmbellishment]);
+  }, [mergeSampleData]);
   
   return { policyData, loading, error };
-} 
+}
+
+// Export getSamplePolicyData for easier component imports
+export { getSamplePolicyData } from '@/types/policy-data'; 

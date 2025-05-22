@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency } from "@/utils/format"
 import type { Person } from "@/types/person"
 import { getSamplePolicyData } from "@/types/policy-data"
+import { usePolicyData } from '@/lib/policy-data'
+import { PolicyData } from "@/types/simulator-interfaces"
 
 interface InitialAssetCalculationProps {
   person: Person
@@ -15,8 +17,12 @@ interface InitialAssetCalculationProps {
 export function InitialAssetCalculation({ person, personIndex = 0 }: InitialAssetCalculationProps) {
   const [activeTab, setActiveTab] = useState<string>("with-policy")
 
-  // Get policy data
-  const policyData = getSamplePolicyData()
+  // Use the policy data hook instead of directly loading sample data
+  const { policyData: loadedPolicyData } = usePolicyData(true)
+  
+  // Fallback to sample data only if no policy data is loaded
+  const policyData = loadedPolicyData || getSamplePolicyData()
+  
   const hasPolicyData = policyData && policyData.length > personIndex && personIndex >= 0
   const personPolicy = hasPolicyData ? policyData[personIndex] : null
 

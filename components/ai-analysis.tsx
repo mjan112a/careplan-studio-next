@@ -7,6 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSamplePolicyData } from "@/types/policy-data"
 import type { Person } from "@/types/person"
+import { usePolicyData } from '@/lib/policy-data'
+import { PolicyData, AnnualPolicyData, PolicyRider } from "@/types/simulator-interfaces"
 
 interface AIAnalysisProps {
   person1: Person
@@ -15,7 +17,12 @@ interface AIAnalysisProps {
 
 export function AIAnalysis({ person1, person2 }: AIAnalysisProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const policyData = getSamplePolicyData()
+  
+  // Use the policy data hook instead of directly loading sample data
+  const { policyData: loadedPolicyData } = usePolicyData(true)
+  
+  // Fallback to sample data only if no policy data is loaded
+  const policyData = loadedPolicyData || getSamplePolicyData()
 
   // Get policy information for each person
   const person1Policy = policyData && policyData.length > 0 ? policyData[0] : null
@@ -40,10 +47,10 @@ export function AIAnalysis({ person1, person2 }: AIAnalysisProps) {
     const ltcBenefit = personPolicy.annual_policy_data[0].monthly_benefit_limit * 12
     const ltcBenefitFormatted = ltcBenefit.toLocaleString()
     const surrenderValue20Years =
-      personPolicy.annual_policy_data.find((d) => d.policy_year === 20)?.surrender_value.toLocaleString() || "0"
+      personPolicy.annual_policy_data.find((d: AnnualPolicyData) => d.policy_year === 20)?.surrender_value.toLocaleString() || "0"
 
     // Get LTC rider details
-    const ltcRider = personPolicy.policy_level_information.riders_and_features.find((rider) =>
+    const ltcRider = personPolicy.policy_level_information.riders_and_features.find((rider: PolicyRider) =>
       rider.rider_feature_name.includes("Chronic Care"),
     )
 
@@ -78,11 +85,11 @@ export function AIAnalysis({ person1, person2 }: AIAnalysisProps) {
       },
       valueTimeline: {
         title: "Value Timeline Visualizer",
-        content: `Your policy's value evolves over time: In the early years, the death benefit of $${deathBenefit} provides immediate protection. By year 10, your surrender value grows to $${personPolicy.annual_policy_data.find((d) => d.policy_year === 10)?.surrender_value.toLocaleString() || "0"}. At retirement age ${person.retirementAge}, your LTC benefit will have increased to approximately $${Math.round(ltcBenefit * Math.pow(1.02, person.retirementAge - personAge)).toLocaleString()} annually, assuming standard inflation protection.`,
+        content: `Your policy's value evolves over time: In the early years, the death benefit of $${deathBenefit} provides immediate protection. By year 10, your surrender value grows to $${personPolicy.annual_policy_data.find((d: AnnualPolicyData) => d.policy_year === 10)?.surrender_value.toLocaleString() || "0"}. At retirement age ${person.retirementAge}, your LTC benefit will have increased to approximately $${Math.round(ltcBenefit * Math.pow(1.02, person.retirementAge - personAge)).toLocaleString()} annually, assuming standard inflation protection.`,
       },
       scenarioModeler: {
         title: "Life Scenario Modeler",
-        content: `We've modeled three scenarios for you, ${personName}: 1) No LTC event - your policy provides a death benefit and accumulates cash value reaching $${surrenderValue20Years} after 20 years. 2) LTC event at age ${person.ltcEventAge} - your policy provides $${ltcBenefitFormatted} annually for care, preserving approximately $${Math.round(person.ltcCostPerYear * person.ltcDuration).toLocaleString()} of your assets. 3) Early policy surrender - after 15 years, you could access approximately $${personPolicy.annual_policy_data.find((d) => d.policy_year === 15)?.surrender_value.toLocaleString() || "0"} in cash value.`,
+        content: `We've modeled three scenarios for you, ${personName}: 1) No LTC event - your policy provides a death benefit and accumulates cash value reaching $${surrenderValue20Years} after 20 years. 2) LTC event at age ${person.ltcEventAge} - your policy provides $${ltcBenefitFormatted} annually for care, preserving approximately $${Math.round(person.ltcCostPerYear * person.ltcDuration).toLocaleString()} of your assets. 3) Early policy surrender - after 15 years, you could access approximately $${personPolicy.annual_policy_data.find((d: AnnualPolicyData) => d.policy_year === 15)?.surrender_value.toLocaleString() || "0"} in cash value.`,
       },
       legacyPlanning: {
         title: "Legacy Planning Optimizer",

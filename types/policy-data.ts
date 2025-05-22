@@ -223,6 +223,13 @@ export function getPolicyDeathBenefitForAge(policyData: PolicyData[], personInde
 
 // Function to get policy data for a specific person
 export function getPolicyDataForPerson(personIndex: number): PolicyData | null {
+  // Check for custom data in window global first
+  if (typeof window !== 'undefined' && window._customPolicyData && 
+      personIndex >= 0 && personIndex < window._customPolicyData.length) {
+    return window._customPolicyData[personIndex];
+  }
+  
+  // Fall back to sample data if no custom data is available
   if (personIndex >= 0 && personIndex < samplePolicyData.length) {
     return samplePolicyData[personIndex];
   }

@@ -21,6 +21,22 @@ We've implemented a flexible mapping system in `lib/policy-data/index.ts` that c
 3. "Embellish" sparse data by combining it with sample data
 4. Gracefully handle unexpected data formats
 
+## Component Integration
+
+To ensure all components use the correctly mapped policy data, we've updated the following components:
+
+1. **PolicyDataDebug**: Now uses `usePolicyData()` hook instead of directly loading sample data
+2. **AIAnalysis**: Uses the mapped policy data with embellishment enabled
+3. **InitialAssetCalculation**: Uses the mapped policy data with a fallback to sample data
+4. **PolicyGrowthChart**: Uses an updated `getPolicyDataForPerson()` function that checks for window global data
+
+The `getPolicyDataForPerson()` function now checks for data in this order:
+
+1. `window._customPolicyData` (mapped data from API)
+2. Sample data as a fallback
+
+This ensures consistent data flow across the entire simulator.
+
 ## How It Works
 
 ### 1. Data Flow
@@ -37,6 +53,7 @@ The `mapProcessedDataToPolicyData` function:
 
 - Determines if data is already in the correct format
 - Handles array-format processed data (common from database extractions)
+- Handles Gemini API response format (JSON text inside candidate response)
 - Extracts basic information from first-year data
 - Creates policy level information with defaults or provided values
 - Maps each year's data to the expected annual policy data format

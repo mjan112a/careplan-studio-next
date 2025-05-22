@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { getSamplePolicyData } from "@/types/policy-data"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { usePolicyData } from '@/lib/policy-data'
+import { PolicyData } from "@/types/simulator-interfaces"
 
 interface PolicyDataDebugProps {
   shiftPolicyYear?: boolean
@@ -12,7 +14,12 @@ interface PolicyDataDebugProps {
 
 export function PolicyDataDebug({ shiftPolicyYear = false }: PolicyDataDebugProps) {
   const [showData, setShowData] = useState(false)
-  const policyData = getSamplePolicyData()
+  
+  // Use the hook to get policy data instead of loading sample data
+  const { policyData: loadedPolicyData } = usePolicyData(true)
+  
+  // Fallback to sample data only if no policy data is loaded
+  const policyData = loadedPolicyData || getSamplePolicyData()
 
   // Adjust policy years if shift is enabled
   const adjustedPolicyData = shiftPolicyYear

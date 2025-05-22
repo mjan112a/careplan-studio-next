@@ -22,11 +22,12 @@ import { PolicyDataDebug } from "@/components/policy-data-debug"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { PolicyLoanChart } from "@/components/policy-loan-chart"
 import { CustomGuidedTour, WelcomeModal } from "@/components/custom-guided-tour"
-import { HelpCircle, RotateCcw } from "lucide-react"
+import { HelpCircle, RotateCcw, AlertCircle } from "lucide-react"
 import { PolicyGrowthChart } from "@/components/policy-growth-chart"
 import { PolicyComparisonChart } from "@/components/policy-comparison-chart"
 import { FinancialCalculationDebug } from "@/components/financial-calculation-debug"
 import { PolicyData } from "@/types/simulator-interfaces"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // Import the new tax visualization components
 import { TaxImpactVisualization } from "@/components/tax-impact-visualization"
@@ -47,10 +48,10 @@ declare global {
 export default function Home() {
   const [useActualPolicy, setUseActualPolicy] = useState(true)
   const [shiftPolicyDataYear, setShiftPolicyDataYear] = useState(false)
-  const [useEmbellishment, setUseEmbellishment] = useState(true)
+  const [mergeSampleData, setMergeSampleData] = useState(true)
   
   // Use our new hook to get policy data
-  const { policyData, loading } = usePolicyData(useEmbellishment)
+  const { policyData, loading } = usePolicyData(mergeSampleData)
   
   // Chart visibility toggles
   const [showPolicyBenefits, setShowPolicyBenefits] = useState(true)
@@ -63,6 +64,10 @@ export default function Home() {
 
   // Use policy data from state or fallback to sample data
   const activePolicyData = policyData
+
+  // Check if we're using sample data to complete the policy data
+  const hasIncompletePolicyData = policyData && policyData.some(policy => policy._incomplete)
+  const isShowingSampleDataNotice = hasIncompletePolicyData && mergeSampleData
 
   // Initialize person data with policy information, with fallbacks if policy data is missing
   const [person1, setPerson1] = useState<Person>(() => {
@@ -311,6 +316,21 @@ export default function Home() {
     }
   }
 
+  // Convert PolicyData to the format expected by PersonForm
+  const convertToPersonFormPolicyData = (policyData: PolicyData | null): any[] => {
+    if (!policyData) return [];
+    
+    return policyData.annual_policy_data.map(yearData => ({
+      year: yearData.policy_year,
+      premium: yearData.annual_premium,
+      cashValue: yearData.surrender_value,
+      deathBenefit: yearData.death_benefit,
+      totalLTCBenefit: yearData.monthly_benefit_limit * 12, // Estimate total annual LTC benefit
+      aobMonthly: yearData.monthly_benefit_limit,
+      cobMonthly: yearData.monthly_benefit_limit,
+    }));
+  };
+
   // Show loading state while policy data is being fetched
   if (loading) {
     return (
@@ -325,7 +345,18 @@ export default function Home() {
 
   return (
     <main className="container mx-auto py-8">
-      {/* Original UI code remains unchanged */}
+      {/* Sample data notification */}
+      {isShowingSampleDataNotice && (
+        <Alert className="mb-6 bg-blue-100 border-2 border-blue-400 p-4 dark:bg-blue-900 dark:border-blue-600 shadow-sm">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-6 w-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <AlertDescription className="text-base font-semibold text-blue-800 dark:text-blue-200">
+              Some policy data was incomplete. Sample data has been merged to provide a complete simulation.
+            </AlertDescription>
+          </div>
+        </Alert>
+      )}
+      
       <h1 className="text-3xl font-bold mb-6 text-center">LTC Event Financial Impact Simulator</h1>
 
       <div className="flex items-center space-x-4 mb-6 justify-between">
@@ -367,12 +398,12 @@ export default function Home() {
           </div>
           */}
           
-          {/* Add embellishment toggle if we have incomplete policy data */}
+          {/* Add sample data merge toggle if we have incomplete policy data */}
           {policyData && policyData.some(policy => policy._incomplete) && (
             <div className="flex items-center space-x-2">
-              <Switch id="useEmbellishment" checked={useEmbellishment} onCheckedChange={setUseEmbellishment} />
-              <Label htmlFor="useEmbellishment" className="flex items-center">
-                Enhance Policy Data
+              <Switch id="mergeSampleData" checked={mergeSampleData} onCheckedChange={setMergeSampleData} />
+              <Label htmlFor="mergeSampleData" className="flex items-center">
+                Complete with Sample Data
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -428,7 +459,15 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
               <div className="grid grid-cols-1 gap-6">
-                <PersonForm person={{ ...person1, policyData: [] } as any} onChange={(p: any) => setPerson1(p)} />
+                <PersonForm 
+                  person={{ 
+                    ...person1, 
+                    policyData: activePolicyData && activePolicyData.length > 0 
+                      ? convertToPersonFormPolicyData(activePolicyData[0]) 
+                      : [] 
+                  } as any} 
+                  onChange={(p: any) => setPerson1(p)} 
+                />
                 <PolicyDetails personIndex={0} shiftPolicyYear={shiftPolicyDataYear} />
               </div>
             </div>
@@ -531,7 +570,15 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
               <div className="grid grid-cols-1 gap-6">
-                <PersonForm person={{ ...person2, policyData: [] } as any} onChange={(p: any) => setPerson2(p)} />
+                <PersonForm 
+                  person={{ 
+                    ...person2, 
+                    policyData: activePolicyData && activePolicyData.length > 1 
+                      ? convertToPersonFormPolicyData(activePolicyData[1]) 
+                      : [] 
+                  } as any} 
+                  onChange={(p: any) => setPerson2(p)} 
+                />
                 <PolicyDetails personIndex={1} shiftPolicyYear={shiftPolicyDataYear} />
               </div>
             </div>
