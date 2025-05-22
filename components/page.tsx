@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { PersonForm } from "@/components/person-form"
+import PersonForm from "@/components/person-form"
 import { AssetProjectionChart } from "@/components/asset-projection-chart"
 import { IncomeExpenseChart } from "@/components/income-expense-chart"
 import { PolicyDetails } from "@/components/policy-details"
@@ -15,7 +15,7 @@ import { Documentation } from "@/components/documentation"
 import { type Person, defaultPerson } from "@/types/person"
 import { calculateFinancialProjection, calculateHouseholdProjection } from "@/utils/financial-calculations"
 import { formatCurrency } from "@/utils/format"
-import { getFullPolicyData } from "@/types/policy-data"
+import { getSamplePolicyData } from "@/types/policy-data"
 import { PolicyDataDebug } from "@/components/policy-data-debug"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { PolicyLoanChart } from "@/components/policy-loan-chart"
@@ -24,27 +24,32 @@ import { HelpCircle } from "lucide-react"
 import { PolicyGrowthChart } from "@/components/policy-growth-chart"
 import { PolicyComparisonChart } from "@/components/policy-comparison-chart"
 import { FinancialCalculationDebug } from "@/components/financial-calculation-debug"
+import { usePolicyData } from '@/lib/policy-data'
+import { PolicyData } from '@/types/simulator-interfaces'
 
 // Import the new tax visualization components
 import { TaxImpactVisualization } from "@/components/tax-impact-visualization"
 import { TaxEfficiencyAdvisor } from "@/components/tax-efficiency-advisor"
 import { logger } from '@/lib/logging'
 
-// When the page loads, check for policy data in the form
-// This must run only on the client side
+// Get policy data from URL if available
+let initialPolicyData: PolicyData[] | null = null;
 if (typeof window !== 'undefined') {
   try {
     const formElement = document.querySelector('input[name="data"]') as HTMLInputElement | null
     if (formElement?.value) {
-      // Get data from the form and pass directly to getFullPolicyData
-      // All the parsing logic is handled in the getFullPolicyData function now
-      const policyData = getFullPolicyData(formElement.value)
-      if (policyData) {
-        logger.info('Retrieved policy data for simulation', { 
-          dataLength: policyData.length,
-          sampleYear: policyData[0]?.annual_policy_data?.[0]
-        })
-        window._customPolicyData = policyData
+      // Try to parse JSON data from the form
+      try {
+        const jsonData = JSON.parse(formElement.value);
+        if (Array.isArray(jsonData) && jsonData.length > 0) {
+          initialPolicyData = jsonData as PolicyData[];
+          logger.info('Retrieved policy data for simulation', { 
+            dataLength: initialPolicyData.length,
+            sampleYear: initialPolicyData[0]?.annual_policy_data?.[0]
+          });
+        }
+      } catch (parseError) {
+        logger.error('Error parsing policy data JSON', { error: parseError });
       }
     }
   } catch (error) {
@@ -55,6 +60,7 @@ if (typeof window !== 'undefined') {
 export default function Home() {
   const [useActualPolicy, setUseActualPolicy] = useState(true)
   const [shiftPolicyDataYear, setShiftPolicyDataYear] = useState(false)
+  const [mergeSampleData, setMergeSampleData] = useState(true)
 
   // Chart visibility toggles
   const [showPolicyBenefits, setShowPolicyBenefits] = useState(true)
@@ -65,13 +71,15 @@ export default function Home() {
   const [runTour, setRunTour] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
-  // Get policy data - use custom data if available through window global
-  const policyData = typeof window !== 'undefined' && window._customPolicyData ? 
-    window._customPolicyData : getFullPolicyData()
+  // Use our policy data hook
+  const { policyData } = usePolicyData(mergeSampleData)
+  
+  // Set active policy data - use initial data if provided via form, or hook data
+  const activePolicyData = initialPolicyData || policyData
 
   // Initialize person data with policy information, with fallbacks if policy data is missing
   const [person1, setPerson1] = useState<Person>(() => {
-    const policy = policyData && policyData.length > 0 ? policyData[0] : null
+    const policy = activePolicyData && activePolicyData.length > 0 ? activePolicyData[0] : null
     return {
       ...defaultPerson,
       name: policy ? policy.policy_level_information.insured_person_name : "Person 1",

@@ -1,10 +1,4 @@
-// Add custom global typings for window object
-declare global {
-  interface Window {
-    _customPolicyData?: PolicyData[];
-  }
-}
-
+// Import the simulator interfaces
 import { logger } from '@/lib/logging';
 import { 
   PolicyData, 
@@ -70,14 +64,10 @@ function extractPolicyDataFromText(text: string): any[] {
 
 // Function to get sample policy data for display
 export function getSamplePolicyData(): PolicyData[] {
-  // Check for custom data in window global
-  if (typeof window !== 'undefined' && window._customPolicyData) {
-    return window._customPolicyData;
-  }
-  
-  // No custom data found, return a deep copy of the sample data
+  // Return a deep copy of the sample data
   return JSON.parse(JSON.stringify(samplePolicyData)) as PolicyData[];
 }
+
 // Function to get policy benefit for a specific age
 export function getPolicyBenefitForAge(policyData: PolicyData[], personIndex: number, age: number): number {
   if (!policyData || policyData.length <= personIndex || personIndex < 0) {
@@ -222,11 +212,13 @@ export function getPolicyDeathBenefitForAge(policyData: PolicyData[], personInde
 }
 
 // Function to get policy data for a specific person
-export function getPolicyDataForPerson(personIndex: number): PolicyData | null {
-  // Check for custom data in window global first
-  if (typeof window !== 'undefined' && window._customPolicyData && 
-      personIndex >= 0 && personIndex < window._customPolicyData.length) {
-    return window._customPolicyData[personIndex];
+export function getPolicyDataForPerson(
+  personIndex: number, 
+  policyData?: PolicyData[] | null
+): PolicyData | null {
+  // Use provided policy data if available
+  if (policyData && personIndex >= 0 && personIndex < policyData.length) {
+    return policyData[personIndex];
   }
   
   // Fall back to sample data if no custom data is available

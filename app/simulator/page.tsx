@@ -22,7 +22,7 @@ import { PolicyDataDebug } from "@/components/policy-data-debug"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { PolicyLoanChart } from "@/components/policy-loan-chart"
 import { CustomGuidedTour, WelcomeModal } from "@/components/custom-guided-tour"
-import { HelpCircle, RotateCcw, AlertCircle } from "lucide-react"
+import { HelpCircle, AlertCircle } from "lucide-react"
 import { PolicyGrowthChart } from "@/components/policy-growth-chart"
 import { PolicyComparisonChart } from "@/components/policy-comparison-chart"
 import { FinancialCalculationDebug } from "@/components/financial-calculation-debug"
@@ -36,14 +36,6 @@ import { logger } from '@/lib/logging'
 
 // Import our policy data hook
 import { usePolicyData } from '@/lib/policy-data'
-
-// Define the global forceUpdate function for type safety
-declare global {
-  interface Window {
-    _customPolicyData?: PolicyData[];
-    forceSimulatorUpdate?: () => void;
-  }
-}
 
 export default function Home() {
   const [useActualPolicy, setUseActualPolicy] = useState(true)
@@ -68,6 +60,21 @@ export default function Home() {
   // Check if we're using sample data to complete the policy data
   const hasIncompletePolicyData = policyData && policyData.some(policy => policy._incomplete)
   const isShowingSampleDataNotice = hasIncompletePolicyData && mergeSampleData
+
+  // Convert PolicyData to the format expected by PersonForm
+  const convertToPersonFormPolicyData = (policyData: PolicyData | null): any[] => {
+    if (!policyData) return [];
+    
+    return policyData.annual_policy_data.map(yearData => ({
+      year: yearData.policy_year,
+      premium: yearData.annual_premium,
+      cashValue: yearData.surrender_value,
+      deathBenefit: yearData.death_benefit,
+      totalLTCBenefit: yearData.monthly_benefit_limit * 12, // Estimate total annual LTC benefit
+      aobMonthly: yearData.monthly_benefit_limit,
+      cobMonthly: yearData.monthly_benefit_limit,
+    }));
+  };
 
   // Initialize person data with policy information, with fallbacks if policy data is missing
   const [person1, setPerson1] = useState<Person>(() => {
@@ -142,29 +149,6 @@ export default function Home() {
   useEffect(() => {
     setIsMounted(true)
     
-    // Set the force update function with validation
-    window.forceSimulatorUpdate = () => {
-      try {
-        // Validate custom policy data before setting it
-        if (typeof window !== 'undefined' && window._customPolicyData) {
-          // Log the structure to help with debugging
-          logger.debug('Custom policy data structure', {
-            length: window._customPolicyData.length,
-            hasValidStructure: window._customPolicyData.every(p => 
-              p && typeof p === 'object' && 
-              p.policy_level_information && 
-              typeof p.policy_level_information === 'object' &&
-              Array.isArray(p.annual_policy_data)
-            )
-          });
-        }
-      } catch (error) {
-        logger.error('Error in forceSimulatorUpdate', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
-    
     // Check if tour has been completed
     if (typeof window !== "undefined") {
       const hasCompletedTour = localStorage.getItem("ltcSimulator_tourCompleted") === "true"
@@ -172,13 +156,6 @@ export default function Home() {
       // Show welcome modal for first-time users after a short delay
       if (!hasCompletedTour) {
         setTimeout(() => setShowWelcomeModal(true), 1000)
-      }
-    }
-    
-    return () => {
-      // Cleanup
-      if (typeof window !== 'undefined') {
-        window.forceSimulatorUpdate = undefined;
       }
     }
   }, [])
@@ -232,8 +209,8 @@ export default function Home() {
   }, [person2.policyEnabled, policyData])
 
   // Calculate projections
-  const person1Projection = calculateFinancialProjection(person1, 0, useActualPolicy, shiftPolicyDataYear)
-  const person2Projection = calculateFinancialProjection(person2, 1, useActualPolicy, shiftPolicyDataYear)
+  const person1Projection = calculateFinancialProjection(person1, 0, useActualPolicy, shiftPolicyDataYear, activePolicyData)
+  const person2Projection = calculateFinancialProjection(person2, 1, useActualPolicy, shiftPolicyDataYear, activePolicyData)
   const householdProjection = calculateHouseholdProjection(person1Projection, person2Projection)
 
   // Calculate projections with policy turned off for comparison
@@ -244,12 +221,14 @@ export default function Home() {
     0,
     false,
     shiftPolicyDataYear,
+    activePolicyData
   )
   const person2ProjectionWithPolicyOff = calculateFinancialProjection(
     person2WithPolicyOff,
     1,
     false,
     shiftPolicyDataYear,
+    activePolicyData
   )
   const householdProjectionWithPolicyOff = calculateHouseholdProjection(
     person1ProjectionWithPolicyOff,
@@ -264,12 +243,14 @@ export default function Home() {
     0,
     false,
     shiftPolicyDataYear,
+    activePolicyData
   )
   const person2ProjectionWithoutInsurance = calculateFinancialProjection(
     person2WithoutInsurance,
     1,
     false,
     shiftPolicyDataYear,
+    activePolicyData
   )
   const householdProjectionWithoutInsurance = calculateHouseholdProjection(
     person1ProjectionWithoutInsurance,
@@ -304,32 +285,6 @@ export default function Home() {
 
   const householdLegacyAssetsWithoutInsurance =
     person1LegacyAssetsWithoutInsurance + person2LegacyAssetsWithoutInsurance
-
-  // Handle data reset
-  const handleDataReset = () => {
-    if (typeof window !== 'undefined') {
-      // Clear the cached policy data
-      window._customPolicyData = undefined;
-      
-      // Reload the page to fetch fresh data
-      window.location.reload();
-    }
-  }
-
-  // Convert PolicyData to the format expected by PersonForm
-  const convertToPersonFormPolicyData = (policyData: PolicyData | null): any[] => {
-    if (!policyData) return [];
-    
-    return policyData.annual_policy_data.map(yearData => ({
-      year: yearData.policy_year,
-      premium: yearData.annual_premium,
-      cashValue: yearData.surrender_value,
-      deathBenefit: yearData.death_benefit,
-      totalLTCBenefit: yearData.monthly_benefit_limit * 12, // Estimate total annual LTC benefit
-      aobMonthly: yearData.monthly_benefit_limit,
-      cobMonthly: yearData.monthly_benefit_limit,
-    }));
-  };
 
   // Show loading state while policy data is being fetched
   if (loading) {
@@ -371,33 +326,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* Policy toggles hidden for now
-          <div className="flex items-center space-x-2" data-tour="policy-toggle">
-            <Switch id="useActualPolicy" checked={useActualPolicy} onCheckedChange={setUseActualPolicy} />
-            <Label htmlFor="useActualPolicy">Use Actual Policy Data</Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch id="shiftPolicyDataYear" checked={shiftPolicyDataYear} onCheckedChange={setShiftPolicyDataYear} />
-            <Label htmlFor="shiftPolicyDataYear" className="flex items-center">
-              Shift Policy Year
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-4 w-4 ml-1 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs">
-                      Test feature: Shifts policy data by 1 year earlier to align end-of-year policy values with
-                      calculation timing.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </Label>
-          </div>
-          */}
-          
           {/* Add sample data merge toggle if we have incomplete policy data */}
           {policyData && policyData.some(policy => policy._incomplete) && (
             <div className="flex items-center space-x-2">
@@ -419,15 +347,6 @@ export default function Home() {
               </Label>
             </div>
           )}
-
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={handleDataReset} 
-            title="Reset Policy Data"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
 
           <ThemeToggle />
         </div>
@@ -468,7 +387,7 @@ export default function Home() {
                   } as any} 
                   onChange={(p: any) => setPerson1(p)} 
                 />
-                <PolicyDetails personIndex={0} shiftPolicyYear={shiftPolicyDataYear} />
+                <PolicyDetails personIndex={0} shiftPolicyYear={shiftPolicyDataYear} policyData={activePolicyData} />
               </div>
             </div>
             <div className="lg:col-span-2">
@@ -547,6 +466,7 @@ export default function Home() {
                     <PolicyGrowthChart
                       personIndex={0}
                       title="Policy Growth Rates"
+                      policyData={activePolicyData}
                     />
                   </>
                 )}
@@ -579,7 +499,7 @@ export default function Home() {
                   } as any} 
                   onChange={(p: any) => setPerson2(p)} 
                 />
-                <PolicyDetails personIndex={1} shiftPolicyYear={shiftPolicyDataYear} />
+                <PolicyDetails personIndex={1} shiftPolicyYear={shiftPolicyDataYear} policyData={activePolicyData} />
               </div>
             </div>
             <div className="lg:col-span-2">
@@ -658,6 +578,7 @@ export default function Home() {
                     <PolicyGrowthChart
                       personIndex={1}
                       title="Policy Growth Rates"
+                      policyData={activePolicyData}
                     />
                   </>
                 )}
@@ -759,7 +680,7 @@ export default function Home() {
               )}
             </ul>
           </div>
-          <PolicyDataDebug shiftPolicyYear={shiftPolicyDataYear} />
+          <PolicyDataDebug shiftPolicyYear={shiftPolicyDataYear} policyData={activePolicyData} />
 
           <div className="grid grid-cols-1 gap-6 mt-6">
             <TaxImpactVisualization

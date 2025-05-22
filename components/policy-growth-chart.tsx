@@ -4,16 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPercentage } from "@/utils/format"
 import { getPolicyDataForPerson } from "@/types/policy-data"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { PolicyData } from "@/types/simulator-interfaces"
 
 interface PolicyGrowthChartProps {
   personIndex: number
   title?: string
+  policyData?: PolicyData[] | null
 }
 
-export function PolicyGrowthChart({ personIndex, title = "Policy Growth Rates" }: PolicyGrowthChartProps) {
-  const policyData = getPolicyDataForPerson(personIndex)
+export function PolicyGrowthChart({ personIndex, title = "Policy Growth Rates", policyData }: PolicyGrowthChartProps) {
+  const policyDataForPerson = getPolicyDataForPerson(personIndex, policyData)
 
-  if (!policyData) {
+  if (!policyDataForPerson) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -27,7 +29,7 @@ export function PolicyGrowthChart({ personIndex, title = "Policy Growth Rates" }
   }
 
   // Calculate growth rates from the annual data
-  const growthData = policyData.annual_policy_data.map((data, index) => {
+  const growthData = policyDataForPerson.annual_policy_data.map((data, index) => {
     // Skip the first year as we can't calculate growth rate
     if (index === 0) {
       return {
@@ -38,7 +40,7 @@ export function PolicyGrowthChart({ personIndex, title = "Policy Growth Rates" }
       }
     }
 
-    const prevData = policyData.annual_policy_data[index - 1]
+    const prevData = policyDataForPerson.annual_policy_data[index - 1]
 
     // Calculate cash value growth rate
     let cashValueGrowthRate = 0

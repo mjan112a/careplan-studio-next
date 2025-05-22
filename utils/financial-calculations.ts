@@ -1,6 +1,7 @@
 import type { Person } from "@/types/person"
 import { getSamplePolicyData, getTotalLTCBenefitForAge } from "@/types/policy-data"
 import { logger } from "@/lib/logging"
+import { PolicyData } from '@/types/simulator-interfaces'
 
 export interface YearlyFinancialData {
   age: number
@@ -39,20 +40,19 @@ export function calculateFinancialProjection(
   personIndex = 0,
   useActualPolicy = true,
   shiftPolicyYear = false,
+  policyData?: PolicyData[] | null
 ): YearlyFinancialData[] {
   const projection: YearlyFinancialData[] = []
   let currentAssets = person.retirementSavings
   let cumulativeLTCBenefits = 0
   let policyLoanBalance = 0
   
-  // Get policy data - prefer window global to ensure consistency across the application
-  const policyData = typeof window !== 'undefined' && window._customPolicyData 
-    ? window._customPolicyData 
-    : getSamplePolicyData()
+  // Use provided policy data or fall back to sample data
+  const actualPolicyData = policyData || getSamplePolicyData()
   
   // Get policy data summary for this calculation
-  const hasPolicyData = policyData && policyData.length > personIndex && personIndex >= 0
-  const personPolicy = hasPolicyData ? policyData[personIndex] : null
+  const hasPolicyData = actualPolicyData && actualPolicyData.length > personIndex && personIndex >= 0
+  const personPolicy = hasPolicyData ? actualPolicyData[personIndex] : null
   
   // Log a single concise message with the calculation context
   if (personPolicy) {
@@ -682,7 +682,7 @@ export function calculateFinancialProjection(
 
     // For hybrid policies, get the total LTC benefit
     if (isHybridPolicy && useActualPolicy && hasPolicyData) {
-      totalLTCBenefit = getTotalLTCBenefitForAge(policyData, personIndex, age)
+      totalLTCBenefit = getTotalLTCBenefitForAge(actualPolicyData, personIndex, age)
     }
 
     projection.push({

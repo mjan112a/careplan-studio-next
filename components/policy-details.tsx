@@ -4,16 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getPolicyDataForPerson } from "@/types/policy-data"
 import { formatCurrency } from "@/utils/format"
+import { PolicyData } from "@/types/simulator-interfaces"
 
 interface PolicyDetailsProps {
   personIndex?: number
   shiftPolicyYear?: boolean
+  policyData?: PolicyData[] | null
 }
 
-export function PolicyDetails({ personIndex = 0, shiftPolicyYear = false }: PolicyDetailsProps) {
-  const policyData = getPolicyDataForPerson(personIndex)
+export function PolicyDetails({ personIndex = 0, shiftPolicyYear = false, policyData }: PolicyDetailsProps) {
+  const policyDataForPerson = getPolicyDataForPerson(personIndex, policyData)
 
-  if (!policyData) {
+  if (!policyDataForPerson) {
     return (
       <Card>
         <CardHeader>
@@ -26,7 +28,7 @@ export function PolicyDetails({ personIndex = 0, shiftPolicyYear = false }: Poli
     )
   }
 
-  const { policy_level_information, annual_policy_data } = policyData
+  const { policy_level_information, annual_policy_data } = policyDataForPerson
 
   // Adjust policy years if shift is enabled
   const adjustedAnnualData = shiftPolicyYear

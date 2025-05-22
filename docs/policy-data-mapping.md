@@ -41,9 +41,7 @@ This ensures consistent data flow across the entire simulator.
 
 ### 1. Data Flow
 
-```
 URL Query String (doc_ids) → fetchPolicyData → mapProcessedDataToPolicyData → Simulator
-```
 
 If no doc_ids are present in the URL, sample data is used.
 

@@ -298,11 +298,6 @@ export async function fetchPolicyData(docIds: string[], mergeSampleData: boolean
       return null;
     }
     
-    // Update the window global to make data available to other components
-    if (typeof window !== 'undefined') {
-      window._customPolicyData = policyData;
-    }
-    
     return policyData;
   } catch (error) {
     logger.error('Error fetching policy data', {
@@ -363,14 +358,7 @@ export function usePolicyData(mergeSampleData: boolean = false): UsePolicyDataRe
       try {
         setLoading(true);
         
-        // Check if there's any global policy data already loaded
-        if (typeof window !== 'undefined' && window._customPolicyData) {
-          setPolicyData(window._customPolicyData);
-          setLoading(false);
-          return;
-        }
-        
-        // Otherwise, try to get document IDs from URL
+        // Try to get document IDs from URL
         const docIds = getDocumentIdsFromUrl();
         
         if (docIds && docIds.length > 0) {

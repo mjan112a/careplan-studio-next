@@ -255,11 +255,6 @@ export interface FinancialProjectionProps {
  */
 export interface SimulatorGlobals {
   /**
-   * Custom policy data loaded from documents or other sources
-   */
-  _customPolicyData?: PolicyData[];
-  
-  /**
    * Function to force a re-render of the simulator
    */
   forceSimulatorUpdate?: () => void;
