@@ -9,6 +9,7 @@
 
 # production
 /build
+/dist
 
 # debug
 npm-debug.log*
@@ -25,3 +26,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# custom
+/.specstory
+
+# macOS system files
+.DS_Store
+# SpecStory explanation file
+.specstory/.what-is-this.md

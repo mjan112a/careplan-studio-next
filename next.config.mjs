@@ -27,6 +27,15 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  webpack: (config, { isServer }) => {
+    // Handle Handlebars require.extensions issue
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      handlebars: 'handlebars/dist/handlebars.js',
+    };
+    
+    return config;
+  },
 }
 
 if (userConfig) {

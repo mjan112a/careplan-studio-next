@@ -1,0 +1,14 @@
+/* Make Stripe pricing table display plans side-by-side */
+stripe-pricing-table {
+  --stripe-pricing-table-grid-columns: 3;
+  --stripe-pricing-table-grid-gap: 1rem;
+  --stripe-pricing-table-max-width: 100%;
+  --stripe-pricing-table-padding: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  stripe-pricing-table {
+    --stripe-pricing-table-grid-columns: 1;
+  }
+} 

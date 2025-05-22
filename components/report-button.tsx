@@ -9,6 +9,7 @@ import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { formatCurrency } from "../utils/calculation-utils"
 import html2canvas from "html2canvas"
+import { logInfo, logError } from "@/lib/logging"
 
 interface ReportButtonProps {
   person1: Person
@@ -38,13 +39,18 @@ export default function ReportButton({ person1, person2, combinedData }: ReportB
 
       return canvas.toDataURL("image/png")
     } catch (error) {
-      console.error("Error capturing chart:", error)
+      logError("Error capturing chart", error, { component: "ReportButton" })
       return null
     }
   }
 
   const generatePDF = async () => {
     setIsGenerating(true)
+    logInfo("Starting PDF report generation", { 
+      person1Enabled: person1.enabled,
+      person2Enabled: person2.enabled,
+      dataPoints: combinedData.length
+    })
 
     try {
       // Generate the report data
@@ -140,7 +146,10 @@ export default function ReportButton({ person1, person2, combinedData }: ReportB
               }
             }
           } catch (error) {
-            console.error("Error adding chart to PDF:", error)
+            logError("Error adding chart to PDF", error, { 
+              component: "ReportButton",
+              chartIndex: i
+            })
           }
         }
       }
@@ -151,8 +160,9 @@ export default function ReportButton({ person1, person2, combinedData }: ReportB
 
       // Save the PDF
       doc.save("Retirement_LTC_Analysis.pdf")
+      logInfo("PDF report generated successfully")
     } catch (error) {
-      console.error("Error generating PDF:", error)
+      logError("Error generating PDF report", error, { component: "ReportButton" })
       alert("An error occurred while generating the report. Please try again.")
     } finally {
       setIsGenerating(false)
