@@ -7,7 +7,7 @@ import { PolicyData } from './simulator-interfaces';
 export const samplePolicyData: PolicyData[] = [
     {
       policy_level_information: {
-        insured_person_name: "ERIK CLARK",
+        insured_person_name: "ELON MARSHALL",
         insured_person_age: 50,
         insured_person_gender: "Male",
         insured_person_risk_classification: "Standard Non-Nicotine",
