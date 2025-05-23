@@ -1,10 +1,17 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import type { User } from '@supabase/supabase-js';
 import { logger } from '@/lib/logging';
 import { getCookieOptions } from '@/lib/supabase/cookies';
+import { PUBLIC_PATHS, ROUTES } from '@/lib/constants/routes';
 
 export const runtime = 'nodejs';
+
+// Add type for session user with aal
+interface SessionUser extends User {
+  aal?: string;
+}
 
 export async function middleware(req: NextRequest) {
   logger.info('Middleware request', {
@@ -21,30 +28,15 @@ export async function middleware(req: NextRequest) {
   });
 
   // Define paths that should bypass authentication
-  const PUBLIC_PATHS = [
-    '/',         // Root page
-    '/home',     // Public home page
-    '/api/webhooks/stripe',  // Stripe webhooks (protected by Stripe signature)
-    '/api/webhooks/test',    // Test webhooks
-    '/auth/signin',  // Sign in page
-    '/auth/signup',  // Sign up page
-    '/auth/reset-password',  // Password reset page
-    '/auth/update-password', // Password update page
-  ];
-
-  // APIs with debug parameter or public paths can bypass auth
   const isPublicPath = PUBLIC_PATHS.some(path => 
     path.endsWith('*') 
-      ? req.nextUrl.pathname.startsWith(path.slice(0, -1))  // For paths ending with * do prefix match
-      : req.nextUrl.pathname === path                       // For other paths do exact match
+      ? req.nextUrl.pathname.startsWith(path.slice(0, -1))
+      : req.nextUrl.pathname === path
   );
 
   // Create a response object that we can modify
   const res = NextResponse.next();
-  const cookieOptions = getCookieOptions(true); // true for server-side
-
-  // Track all cookie operations to see what Supabase is doing
-  const cookieOperations: { operation: string; name: string; }[] = [];
+  const cookieOptions = getCookieOptions(true);
 
   // Create a Supabase client with the Request and Response
   const supabase = createServerClient(
@@ -54,7 +46,6 @@ export async function middleware(req: NextRequest) {
       cookies: {
         get(name: string) {
           const cookie = req.cookies.get(name);
-          cookieOperations.push({ operation: 'get', name });
           if (!!cookie) {
             logger.debug('Found cookie', { 
               name, 
@@ -66,7 +57,6 @@ export async function middleware(req: NextRequest) {
           return cookie?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieOperations.push({ operation: 'set', name });
           logger.debug('Setting cookie', { 
             name,
             isAuthCookie: name.endsWith('-auth-token'),
@@ -80,7 +70,6 @@ export async function middleware(req: NextRequest) {
           });
         },
         remove(name: string, options: CookieOptions) {
-          cookieOperations.push({ operation: 'remove', name });
           logger.debug('Removing cookie', { 
             name,
             isAuthCookie: name.endsWith('-auth-token')
@@ -97,19 +86,37 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // Log all cookie operations that occurred during client creation
-  logger.debug('Supabase cookie operations during client creation', {
-    operations: cookieOperations,
-    allCookieNames: Array.from(new Set(cookieOperations.map(op => op.name))),
-    authCookieNames: Array.from(new Set(cookieOperations.map(op => op.name).filter(name => name.endsWith('-auth-token'))))
-  });
-
-  // Get authenticated user directly from Supabase Auth server
+  // Get authenticated user and session
   let user = null;
   try {
     const { data: { user: authUser }, error } = await supabase.auth.getUser();
-    logger.debug('Auth user', { id: authUser?.id, email: authUser?.email, error })
-    // If there's an auth error or no user, and we're not on a public path, redirect
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    logger.debug('Auth state', { 
+      userId: authUser?.id, 
+      email: authUser?.email,
+      error,
+      hasSession: !!session
+    });
+
+    // Check if this is a password reset flow
+    const isPasswordReset = req.nextUrl.pathname === ROUTES.AUTH.UPDATE_PASSWORD && 
+      (req.nextUrl.searchParams.has('token') || 
+       req.nextUrl.searchParams.has('type') || 
+       (session?.user as SessionUser)?.aal === 'aal1' || // Type cast to include aal
+       req.nextUrl.searchParams.has('next'));
+
+    if (isPasswordReset) {
+      logger.debug('Password reset flow detected', {
+        hasToken: req.nextUrl.searchParams.has('token'),
+        type: req.nextUrl.searchParams.get('type'),
+        aal: (session?.user as SessionUser)?.aal,
+        next: req.nextUrl.searchParams.get('next')
+      });
+      return res;
+    }
+
+    // If there's an auth error or no user, and we're not on a public path, redirect to sign in
     if ((error || !authUser) && !isPublicPath) {
       logger.info('Auth check failed, redirecting to sign in', {
         error: error?.message || 'No user found',
@@ -117,18 +124,89 @@ export async function middleware(req: NextRequest) {
         isPublicPath
       });
       const redirectUrl = req.nextUrl.clone();
-      redirectUrl.pathname = '/auth/signin';
+      redirectUrl.pathname = ROUTES.AUTH.SIGN_IN;
       redirectUrl.searchParams.set('redirect', req.nextUrl.pathname);
       return NextResponse.redirect(redirectUrl);
     }
     
     user = authUser;
-    logger.debug('Auth state', {
-      path: req.nextUrl.pathname,
-      isAuthenticated: !!user,
-      userId: user?.id,
-      isPublicPath
-    });
+
+    // If authenticated and on auth pages (except during password reset), redirect to dashboard
+    if (user && (
+      req.nextUrl.pathname === ROUTES.HOME || 
+      req.nextUrl.pathname === '/home' ||
+      (req.nextUrl.pathname.startsWith('/auth/') && !isPasswordReset)
+    )) {
+      logger.info('Redirecting authenticated user to dashboard', {
+        from: req.nextUrl.pathname,
+        isAuthenticated: true
+      });
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = ROUTES.DASHBOARD;
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Check if authenticated user has subscription
+    if (user) {
+      try {
+        // Define paths that should bypass subscription check
+        const SUBSCRIPTION_BYPASS_PATHS = [
+          '/subscribe',
+          '/api/subscribe',
+          '/api/webhooks/stripe',
+          '/auth/update-password',  // Allow password reset without subscription
+          '/auth/reset-password',   // Allow password reset request without subscription
+          '/api/policy-documents'  // Allow document access for subscription page
+        ];
+
+        const bypassSubscriptionCheck = SUBSCRIPTION_BYPASS_PATHS.some(path => 
+          req.nextUrl.pathname.startsWith(path)
+        );
+
+        // Only check subscription if not on exempt paths
+        if (!bypassSubscriptionCheck) {
+          // Query the user's profile to check subscription status
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('subscription_level')
+            .eq('id', user.id)
+            .single();
+
+          logger.debug('Subscription check', {
+            userId: user.id,
+            subscriptionLevel: profile?.subscription_level,
+            path: req.nextUrl.pathname
+          });
+
+          if (profileError) {
+            logger.error('Error fetching profile for subscription check', {
+              error: profileError.message,
+              userId: user.id
+            });
+          }
+
+          // Redirect to subscribe page if subscription_level is null or empty
+          if (!profile?.subscription_level) {
+            logger.info('Redirecting non-subscribed user to subscription page', {
+              from: req.nextUrl.pathname,
+              userId: user.id
+            });
+            const redirectUrl = req.nextUrl.clone();
+            redirectUrl.pathname = '/subscribe';
+            return NextResponse.redirect(redirectUrl);
+          }
+        }
+      } catch (error) {
+        logger.error('Error during subscription check', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          userId: user.id,
+          path: req.nextUrl.pathname
+        });
+      }
+    }
+
+    return res;
   } catch (error) {
     // Only log actual errors (network issues etc)
     logger.error('Error getting authenticated user', { 
@@ -139,118 +217,12 @@ export async function middleware(req: NextRequest) {
     // On actual errors, redirect if not on public path
     if (!isPublicPath) {
       const redirectUrl = req.nextUrl.clone();
-      redirectUrl.pathname = '/auth/signin';
+      redirectUrl.pathname = ROUTES.AUTH.SIGN_IN;
       redirectUrl.searchParams.set('redirect', req.nextUrl.pathname);
       return NextResponse.redirect(redirectUrl);
     }
     return res;
   }
-
-  // Log all cookie operations that occurred during the entire middleware execution
-  // Very chatty -- disabled
-  // logger.debug('Final Supabase cookie operations', {
-  //   operations: cookieOperations,
-  //   allCookieNames: Array.from(new Set(cookieOperations.map(op => op.name))),
-  //   authCookieNames: Array.from(new Set(cookieOperations.map(op => op.name).filter(name => name.endsWith('-auth-token'))))
-  // });
-
-  // If not authenticated and not on a public path, redirect to sign in
-  if (!user && !isPublicPath) {
-    logger.info('Redirecting unauthenticated user to sign in', {
-      from: req.nextUrl.pathname,
-      isAuthenticated: false
-    });
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = '/auth/signin';
-    
-    // If this is an API route being redirected, get the referrer page path
-    // or strip /api from the path to get the original page path
-    let redirectPath = req.nextUrl.pathname;
-    if (redirectPath.startsWith('/api/')) {
-      redirectPath = req.headers.get('referer')?.replace(req.nextUrl.origin, '') || 
-                    redirectPath.replace('/api', '');
-    }
-    
-    redirectUrl.searchParams.set('redirect', redirectPath);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // If authenticated and on auth pages, redirect to dashboard
-  if (user && (
-    req.nextUrl.pathname === '/' || 
-    req.nextUrl.pathname === '/home' ||
-    (req.nextUrl.pathname.startsWith('/auth/') && 
-     req.nextUrl.pathname !== '/auth/update-password')  // Exception for update-password page
-  )) {
-    logger.info('Redirecting authenticated user to dashboard', {
-      from: req.nextUrl.pathname,
-      isAuthenticated: true
-    });
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = '/dashboard';
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Check if authenticated user has subscription
-  if (user) {
-    try {
-      // Define paths that should bypass subscription check
-      const SUBSCRIPTION_BYPASS_PATHS = [
-        '/subscribe',
-        '/api/subscribe',
-        '/api/webhooks/stripe',
-        '/auth/update-password',
-        '/api/policy-documents'  // Allow document access for subscription page
-      ];
-
-      const bypassSubscriptionCheck = SUBSCRIPTION_BYPASS_PATHS.some(path => 
-        req.nextUrl.pathname.startsWith(path)
-      );
-
-      // Only check subscription if not on exempt paths
-      if (!bypassSubscriptionCheck) {
-        // Query the user's profile to check subscription status
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('subscription_level')
-          .eq('id', user.id)
-          .single();
-
-        logger.debug('Subscription check', {
-          userId: user.id,
-          subscriptionLevel: profile?.subscription_level,
-          path: req.nextUrl.pathname
-        });
-
-        if (profileError) {
-          logger.error('Error fetching profile for subscription check', {
-            error: profileError.message,
-            userId: user.id
-          });
-        }
-
-        // Redirect to subscribe page if subscription_level is null or empty
-        if (!profile?.subscription_level) {
-          logger.info('Redirecting non-subscribed user to subscription page', {
-            from: req.nextUrl.pathname,
-            userId: user.id
-          });
-          const redirectUrl = req.nextUrl.clone();
-          redirectUrl.pathname = '/subscribe';
-          return NextResponse.redirect(redirectUrl);
-        }
-      }
-    } catch (error) {
-      logger.error('Error during subscription check', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        userId: user.id,
-        path: req.nextUrl.pathname
-      });
-    }
-  }
-
-  return res;
 }
 
 // Specify which routes should be processed by this middleware

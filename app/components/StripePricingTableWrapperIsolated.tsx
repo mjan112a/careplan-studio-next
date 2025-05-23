@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logging';
+import { ROUTES } from '@/lib/constants/routes';
 
 // Use memo to prevent unnecessary re-renders of the dynamic component
 const StripePricingTableIsolated = memo(dynamic(
@@ -41,7 +42,7 @@ export default function StripePricingTableWrapperIsolated({
   }, [userId, isInitialized]);
 
   const handleSignUp = () => {
-    router.push('/auth/signup?redirectedFrom=/subscribe');
+    router.push(`${ROUTES.AUTH.SIGN_UP}?redirectedFrom=${ROUTES.SUBSCRIBE}`);
   };
 
   return (

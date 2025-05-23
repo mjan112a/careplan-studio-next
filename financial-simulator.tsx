@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label"
 import PolicyDataUploader from "./components/policy-data-uploader"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from 'next/navigation'
+import { ROUTES } from '@/lib/constants/routes'
 
 export default function FinancialSimulatorWrapper() {
   const router = useRouter()
@@ -699,6 +700,12 @@ function FinancialSimulator({ router }: { router: any }) {
     }
   }
 
+  const handleSignOut = () => {
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("username");
+    router.push(ROUTES.AUTH.SIGN_IN);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
       <div className="container mx-auto p-4">
@@ -743,7 +750,7 @@ function FinancialSimulator({ router }: { router: any }) {
                 {showSidebar ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 {showSidebar ? "Hide" : "Show"} Inputs
               </Button>
-              <Link href="/debug" passHref>
+              <Link href={ROUTES.DEBUG} passHref>
                 <Button variant="outline" size="sm" onClick={saveDebugData}>
                   <Bug className="h-4 w-4 mr-2" />
                   Debug View
@@ -753,11 +760,7 @@ function FinancialSimulator({ router }: { router: any }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  localStorage.removeItem("isAuthenticated")
-                  localStorage.removeItem("username")
-                  router.push("/auth/signin")
-                }}
+                onClick={handleSignOut}
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout

@@ -8,6 +8,7 @@ import { ArrowRight, CheckCircle, BarChart2, Upload, PieChart, Users, Play } fro
 import PricingSection from "../components/PricingSection"
 import { getSession } from '@/utils/auth-state';
 import { logDebug, logError } from '@/lib/logging';
+import { ROUTES } from '@/lib/constants/routes';
 
 export default function Home() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function Home() {
         if (session) {
           // If authenticated, redirect to dashboard
           logDebug('User authenticated, redirecting from home to dashboard', { userId: session.user?.id });
-          router.push('/dashboard');
+          router.push(ROUTES.DASHBOARD);
         }
       } catch (error) {
         logError('Error checking authentication', error, { page: 'home' });
@@ -35,12 +36,12 @@ export default function Home() {
       <nav className="border-b bg-white">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
-            <Link href="/">
+            <Link href={ROUTES.HOME}>
               <h1 className="text-2xl font-bold text-blue-600">CarePlan Studio</h1>
             </Link>
           </div>
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/sign-in" className="text-blue-600 font-medium hover:text-blue-800 transition">
+            <Link href={ROUTES.SIMULATOR} className="text-blue-600 font-medium hover:text-blue-800 transition">
               Simulator Tool
             </Link>
             <Link href="#features" className="text-gray-600 hover:text-blue-600 transition">
@@ -54,10 +55,10 @@ export default function Home() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <Link href="/auth/signin" passHref>
+            <Link href={ROUTES.AUTH.SIGN_IN} passHref>
               <Button variant="outline">Log In</Button>
             </Link>
-            <Link href="/auth/signin" passHref>
+            <Link href={ROUTES.AUTH.SIGN_IN} passHref>
               <Button>Try For Free</Button>
             </Link>
           </div>
@@ -74,7 +75,7 @@ export default function Home() {
                 Upload any LTC policy, simulate outcomes, and show clients exactly how insurance protects their future.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/auth/signin" passHref>
+                <Link href={ROUTES.AUTH.SIGN_IN} passHref>
                   <Button size="lg" className="px-8">
                     Launch Simulator
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -205,7 +206,7 @@ export default function Home() {
                 className="w-full h-auto rounded-md mb-6"
               />
               <div className="flex justify-center">
-                <Link href="/auth/signin" passHref>
+                <Link href={ROUTES.AUTH.SIGN_IN} passHref>
                   <Button size="lg" className="px-8">
                     Launch Simulator Now
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -398,12 +399,12 @@ export default function Home() {
             Join hundreds of advisors who are closing more cases with CarePlan Studio.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/signin" passHref>
+            <Link href={ROUTES.AUTH.SIGN_IN} passHref>
               <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50">
                 Launch Simulator Now
               </Button>
             </Link>
-            <Link href="/contact" passHref>
+            <Link href={ROUTES.CONTACT} passHref>
               <Button variant="outline" size="lg" className="border-white text-white hover:bg-blue-700">
                 Schedule a Demo
               </Button>
@@ -456,7 +457,7 @@ export default function Home() {
               <h3 className="text-white text-lg font-bold mb-4">Product</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/sign-in" className="hover:text-white transition">
+                  <Link href={ROUTES.SIMULATOR} className="hover:text-white transition">
                     Simulator
                   </Link>
                 </li>
@@ -513,7 +514,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/contact" className="hover:text-white transition">
+                  <Link href={ROUTES.CONTACT} className="hover:text-white transition">
                     Contact
                   </Link>
                 </li>

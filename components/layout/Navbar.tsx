@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { User } from '@supabase/supabase-js';
 import { logger } from '@/lib/logging';
+import { ROUTES } from '@/lib/constants/routes';
 
 interface NavbarProps {
   user: User | null;
@@ -17,10 +18,20 @@ export default function Navbar({ user }: NavbarProps) {
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
       logger.info('User signed out');
-      // Force a hard navigation to clear server-side state
-      window.location.href = '/';
+      
+      // Clear any local storage items
+      localStorage.clear();
+      
+      // Clear any session storage items
+      sessionStorage.clear();
+      
+      // Force a hard navigation to clear server-side state and all cookies
+      window.location.href = ROUTES.AUTH.SIGN_IN;
     } catch (error) {
       logger.error('Error signing out:', {
         error: error instanceof Error ? error.message : String(error),
@@ -34,7 +45,7 @@ export default function Navbar({ user }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex-shrink-0 flex items-center">
-            <Link href="/dashboard" className="text-xl font-bold text-indigo-600">
+            <Link href={ROUTES.DASHBOARD} className="text-xl font-bold text-indigo-600">
               CarePlan Studio
             </Link>
           </div>
@@ -61,28 +72,21 @@ export default function Navbar({ user }: NavbarProps) {
                       {user.email}
                     </div>
                     <Link
-                      href="/profile"
+                      href={ROUTES.PROFILE}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Your Profile
                     </Link>
                     <Link
-                      href="/profile/invoices"
+                      href={ROUTES.PROFILE_ROUTES.INVOICES}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Your Invoices
                     </Link>
                     <Link
-                      href="/prompts"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Prompts
-                    </Link>
-                    <Link
-                      href="/subscribe"
+                      href={ROUTES.SUBSCRIBE}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsMenuOpen(false)}
                     >
@@ -98,7 +102,7 @@ export default function Navbar({ user }: NavbarProps) {
                 )}
               </div>
             ) : (
-              <Link href="/auth/signin" className="text-sm font-medium text-gray-700 hover:text-gray-800">
+              <Link href={ROUTES.AUTH.SIGN_IN} className="text-sm font-medium text-gray-700 hover:text-gray-800">
                 Sign in
               </Link>
             )}

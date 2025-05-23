@@ -5,6 +5,7 @@ import { getAppURL } from '@/utils/url';
 import { createServerSupabaseClient } from '@/lib/supabase/client';
 import Layout from '@/app/components/Layout';
 import OptimizedPDFViewer from './OptimizedPDFViewer';
+import { ROUTES } from '@/lib/constants/routes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,7 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               Error: Not authenticated
             </div>
-            <Link href="/auth/signin" className="text-blue-600 hover:underline">Sign in</Link>
+            <Link href={ROUTES.AUTH.SIGN_IN} className="text-blue-600 hover:underline">Sign in</Link>
           </div>
         </Layout>
       );
@@ -56,7 +57,7 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
           <div className="p-8">
             <h1 className="text-2xl font-bold mb-4">Policy Document Debug</h1>
             <div className="text-red-600 mb-4">No policy document id provided.</div>
-            <Link href="/dashboard" className="text-blue-600 hover:underline">← Back to Dashboard</Link>
+            <Link href={ROUTES.DASHBOARD} className="text-blue-600 hover:underline">← Back to Dashboard</Link>
           </div>
         </Layout>
       );
@@ -224,7 +225,7 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
       <Layout user={user}>
         <div className="max-w-7xl mx-auto p-8 space-y-8">
           <div>
-            <Link href="/dashboard" className="text-blue-600 hover:underline">&larr; Back</Link>
+            <Link href={ROUTES.DASHBOARD} className="text-blue-600 hover:underline">&larr; Back</Link>
           </div>
           <h1 className="text-2xl font-bold mb-4">Policy Document Debug</h1>
           
@@ -466,7 +467,7 @@ export default async function PolicyDocumentDebugPage({ searchParams }: Props) {
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             Error loading policy document debug page
           </div>
-          <Link href="/dashboard" className="text-blue-600 hover:underline">← Back to Dashboard</Link>
+          <Link href={ROUTES.DASHBOARD} className="text-blue-600 hover:underline">← Back to Dashboard</Link>
         </div>
       </Layout>
     );

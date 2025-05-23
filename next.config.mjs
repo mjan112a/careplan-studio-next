@@ -36,6 +36,21 @@ const nextConfig = {
     
     return config;
   },
+  async redirects() {
+    return [
+      {
+        source: '/auth/signin',
+        destination: '/auth/sign-in',
+        permanent: true,
+      },
+      {
+        source: '/auth/signup',
+        destination: '/auth/sign-up',
+        permanent: true,
+      },
+      // Add any other old paths that need redirecting
+    ];
+  },
 }
 
 if (userConfig) {
