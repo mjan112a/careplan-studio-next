@@ -2,33 +2,15 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSession } from '@/utils/auth-state';
-import { logDebug, logError } from '@/lib/logging';
+import { ROUTES } from '@/lib/constants/routes';
+import { logger } from '@/lib/logging';
 
 export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const session = await getSession();
-        if (session) {
-          // If authenticated, redirect to dashboard
-          logDebug('User authenticated, redirecting to dashboard', { userId: session.user?.id });
-          router.push('/dashboard');
-        } else {
-          // If not authenticated, redirect to home page
-          logDebug('User not authenticated, redirecting to home page');
-          router.push('/home');
-        }
-      } catch (error) {
-        logError('Error checking authentication', error, { page: 'root' });
-        // On error, redirect to home page
-        router.push('/home');
-      }
-    };
-    
-    checkAuth();
+    logger.debug('Root page redirecting to home');
+    router.replace(ROUTES.HOME_PAGE);
   }, [router]);
 
   return (

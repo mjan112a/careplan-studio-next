@@ -13,6 +13,7 @@ export const ROUTES = {
 
   // Main Routes
   HOME: '/',
+  HOME_PAGE: '/home',  // Explicit home page route
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
   SUBSCRIBE: '/subscribe',
@@ -37,6 +38,7 @@ export const ROUTES = {
 // Public paths that don't require authentication
 export const PUBLIC_PATHS = [
   ROUTES.HOME,
+  ROUTES.HOME_PAGE,  // Use the constant instead of string literal
   ROUTES.AUTH.SIGN_IN,
   ROUTES.AUTH.SIGN_UP,
   ROUTES.AUTH.RESET_PASSWORD,

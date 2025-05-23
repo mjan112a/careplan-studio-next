@@ -133,11 +133,9 @@ export async function middleware(req: NextRequest) {
 
     // If authenticated and on auth pages (except during password reset), redirect to dashboard
     if (user && (
-      req.nextUrl.pathname === ROUTES.HOME || 
-      req.nextUrl.pathname === '/home' ||
-      (req.nextUrl.pathname.startsWith('/auth/') && !isPasswordReset)
+      req.nextUrl.pathname.startsWith('/auth/') && !isPasswordReset
     )) {
-      logger.info('Redirecting authenticated user to dashboard', {
+      logger.info('Redirecting authenticated user from auth page to dashboard', {
         from: req.nextUrl.pathname,
         isAuthenticated: true
       });
