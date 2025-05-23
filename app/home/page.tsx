@@ -69,7 +69,14 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 mb-10 md:mb-0 md:pr-10">
-              <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">Turn Illustrations Into Impact</h1>
+              <div className="flex items-center gap-4 mb-6">
+                <img 
+                  src="/financial-planning-icon.svg" 
+                  alt="Financial Planning Icon" 
+                  className="w-16 h-16 md:w-20 md:h-20"
+                />
+                <h1 className="text-4xl md:text-5xl font-bold leading-tight">Turn Illustrations Into Impact</h1>
+              </div>
               <p className="text-xl text-gray-600 mb-8">
                 Upload any LTC policy, simulate outcomes, and show clients exactly how insurance protects their future.
               </p>
@@ -90,7 +97,7 @@ export default function Home() {
             <div className="md:w-1/2">
               <div className="bg-white rounded-lg shadow-xl overflow-hidden">
                 <img
-                  src="/placeholder.svg?height=400&width=600"
+                  src="/dashboard-preview.svg"
                   alt="CarePlan Studio Dashboard"
                   className="w-full h-auto"
                 />
@@ -200,7 +207,7 @@ export default function Home() {
             </p>
             <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
               <img
-                src="/placeholder.svg?height=400&width=800"
+                src="/simulator-preview.svg"
                 alt="CarePlan Studio Simulator Preview"
                 className="w-full h-auto rounded-md mb-6"
               />
@@ -242,7 +249,7 @@ export default function Home() {
                 </Button>
               </div>
               <img
-                src="/placeholder.svg?height=720&width=1280"
+                src="/demo-video.svg"
                 alt="CarePlan Studio Demo Video"
                 className="w-full h-auto opacity-60"
               />
@@ -269,7 +276,7 @@ export default function Home() {
               <h3 className="text-xl font-bold mb-3">Upload an Illustration</h3>
               <p className="text-gray-600">PDFs from Lincoln, Nationwide, OneAmerica, Securian, and more.</p>
               <img
-                src="/placeholder.svg?height=200&width=200"
+                src="/upload-icon.svg"
                 alt="Upload Illustration"
                 className="mt-4 mx-auto rounded-lg shadow-md"
               />
@@ -285,7 +292,7 @@ export default function Home() {
                 surrender value, and more.
               </p>
               <img
-                src="/placeholder.svg?height=200&width=200"
+                src="/analyze-icon.svg"
                 alt="Parse and Analyze"
                 className="mt-4 mx-auto rounded-lg shadow-md"
               />
@@ -301,7 +308,7 @@ export default function Home() {
                 if they surrender the policy in 15 years.
               </p>
               <img
-                src="/placeholder.svg?height=200&width=200"
+                src="/simulation-icon.svg"
                 alt="Show Simulation"
                 className="mt-4 mx-auto rounded-lg shadow-md"
               />
@@ -316,7 +323,7 @@ export default function Home() {
                 Use toggles, hover features, and charts to turn numbers into understanding.
               </p>
               <img
-                src="/placeholder.svg?height=200&width=200"
+                src="/storytelling-icon.svg"
                 alt="Tell the Story"
                 className="mt-4 mx-auto rounded-lg shadow-md"
               />
@@ -544,4 +551,3 @@ export default function Home() {
     </div>
   )
 }
-
