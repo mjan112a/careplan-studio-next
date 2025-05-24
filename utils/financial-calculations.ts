@@ -39,7 +39,6 @@ export function calculateFinancialProjection(
   person: Person,
   personIndex = 0,
   useActualPolicy = true,
-  shiftPolicyYear = false,
   policyData?: PolicyData[] | null
 ): YearlyFinancialData[] {
   const projection: YearlyFinancialData[] = []
@@ -68,9 +67,6 @@ export function calculateFinancialProjection(
 
   // Check if this is a hybrid policy
   const isHybridPolicy = personPolicy?.policy_level_information.policy_type === "hybrid"
-
-  // Get policy start age (the age when the policy was issued)
-  const policyStartAge = personPolicy?.policy_level_information.insured_person_age || person.age
 
   // Track whether we've deviated from the illustration
   let hasDeviatedFromIllustration = false
@@ -105,7 +101,8 @@ export function calculateFinancialProjection(
     })
   }
 
-  // Handle initial premium payment from assets if policy is enabled and initialPremiumFromAssets is true
+  // Track initial premium withdrawal for first year display
+  let initialPremiumWithdrawal = 0
   if (person.policyEnabled && person.initialPremiumFromAssets) {
     // Get the initial premium amount
     let initialPremium = 0
@@ -118,7 +115,7 @@ export function calculateFinancialProjection(
     }
 
     // Calculate the gross withdrawal needed to cover premium + tax
-    const initialPremiumWithdrawal = initialPremium / (1 - person.retirementAssetsTaxRate)
+    initialPremiumWithdrawal = initialPremium / (1 - person.retirementAssetsTaxRate)
 
     // Deduct the initial premium withdrawal from assets
     currentAssets = Math.max(0, currentAssets - initialPremiumWithdrawal)
@@ -135,10 +132,8 @@ export function calculateFinancialProjection(
   for (let age = person.age; age <= person.deathAge; age++) {
     const year = age - person.age
 
-    // Calculate the policy year based on current age, with optional shift
-    const policyYear = shiftPolicyYear
-      ? age - policyStartAge // Shifted by 1 year (year 1 becomes year 0)
-      : age - policyStartAge + 1 // Normal calculation
+    // Simple policy year calculation: Policy Year 1 = person's current age
+    const policyYear = age - person.age + 1
 
     const isRetired = age >= person.retirementAge
     const hasLTCEvent =
@@ -188,35 +183,44 @@ export function calculateFinancialProjection(
     let premiumExpenses = 0
     if (person.policyEnabled) {
       if (useActualPolicy && hasPolicyData && personPolicy) {
-        // Find the annual policy data for the current policy year, accounting for shift if enabled
+        // Debug logging to understand the mismatch
+        if (age <= person.age + 5) {
+          console.log(`DEBUG PREMIUM LOOKUP: Age ${age}, PolicyYear ${policyYear}`)
+          console.log(`Available policy years:`, personPolicy.annual_policy_data.slice(0, 10).map(d => ({
+            policy_year: d.policy_year,
+            annual_premium: d.annual_premium
+          })))
+        }
+
+        // Find the exact annual policy data for the current policy year
         const annualData = personPolicy.annual_policy_data.find((data) => data.policy_year === policyYear)
 
-        // If we don't find an exact match for the policy year, find the closest one that's less than or equal
-        const closestData = !annualData
-          ? personPolicy.annual_policy_data
-              .filter((data) => data.policy_year <= policyYear)
-              .sort((a, b) => b.policy_year - a.policy_year)[0]
-          : null
-
-        const policyDataForYear = annualData || closestData
-
-        if (policyDataForYear) {
-          // Use the data we found
-          premiumExpenses = policyDataForYear.annual_premium
+        if (annualData) {
+          // Use exact match from policy data
+          premiumExpenses = annualData.annual_premium
+          if (age <= person.age + 5) {
+            console.log(`  Found match: PolicyYear ${policyYear} = $${premiumExpenses}`)
+          }
         } else {
-          // Fallback to simplified calculation
-          premiumExpenses = age < person.deathAge ? person.policyAnnualPremium : 0
+          // No exact match means no premium due for this year
+          premiumExpenses = 0
+          if (age <= person.age + 5) {
+            console.log(`  No match found for PolicyYear ${policyYear}, setting premium to $0`)
+          }
         }
       } else {
         premiumExpenses = age < person.deathAge ? person.policyAnnualPremium : 0
       }
 
-      // Skip the first year premium if it's already been paid from assets
-      // or if it's being paid from another source (initialPremiumFromAssets is false)
+      // Handle first year premium based on payment source
       if (year === 0) {
-        // If initialPremiumFromAssets is true, we've already deducted it above
-        // If initialPremiumFromAssets is false, we don't count it as an expense (paid by "magic coupon")
-        premiumExpenses = 0
+        if (person.initialPremiumFromAssets) {
+          // Show the withdrawal amount as premium expense so it appears in charts
+          premiumExpenses = initialPremiumWithdrawal
+        } else {
+          // Don't count it as an expense (paid by "magic coupon")
+          premiumExpenses = 0
+        }
       }
     }
 
@@ -228,23 +232,52 @@ export function calculateFinancialProjection(
 
     if (person.policyEnabled && hasLTCEvent) {
       if (useActualPolicy && hasPolicyData && personPolicy) {
+        // DEBUG: Log policy type and LTC calculation details
+        console.log(`DEBUG LTC CALC - Age ${age}, PolicyYear ${policyYear}:`);
+        console.log(`  Policy Type: ${personPolicy.policy_level_information.policy_type}`);
+        console.log(`  isHybridPolicy: ${isHybridPolicy}`);
+        console.log(`  ltcExpenses: ${ltcExpenses}`);
+        
         // For hybrid policies, handle benefits differently
         if (isHybridPolicy) {
-          // Get the annual LTC benefit from the policy data, accounting for shift if enabled
-          const annualData = personPolicy.annual_policy_data.find((data) => data.policy_year === policyYear)
+          // FIXED: Look up by insured_age instead of policy_year to avoid mismatches
+          console.log(`  HYBRID - LOOKING FOR: insured_age = ${age}, policy_year = ${policyYear}`);
+          
+          // First try to find by insured_age (more reliable)
+          let annualData = personPolicy.annual_policy_data.find((data) => data.insured_age === age)
+          
+          // If not found by age, fall back to policy_year lookup
+          if (!annualData) {
+            annualData = personPolicy.annual_policy_data.find((data) => data.policy_year === policyYear)
+          }
 
-          // If we don't find an exact match for the policy year, find the closest one that's less than or equal
+          // If we still don't find an exact match, find the closest age that's less than or equal
           const closestData = !annualData
             ? personPolicy.annual_policy_data
-                .filter((data) => data.policy_year <= policyYear)
-                .sort((a, b) => b.policy_year - a.policy_year)[0]
+                .filter((data) => data.insured_age <= age)
+                .sort((a, b) => b.insured_age - a.insured_age)[0]
             : null
 
           const policyDataForYear = annualData || closestData
+          
+          if (policyDataForYear) {
+            console.log(`  HYBRID - FOUND DATA: policy_year=${policyDataForYear.policy_year}, insured_age=${policyDataForYear.insured_age}, annual_ltc_benefit=${policyDataForYear.annual_ltc_benefit}`);
+          }
 
           if (policyDataForYear && policyDataForYear.annual_ltc_benefit) {
+            console.log(`  HYBRID PATH - annual_ltc_benefit: ${policyDataForYear.annual_ltc_benefit}`);
+            console.log(`  HYBRID PATH - ltcExpenses: ${ltcExpenses}`);
+            console.log(`  HYBRID PATH - Math.min(${policyDataForYear.annual_ltc_benefit}, ${ltcExpenses})`);
+            
             // For hybrid policies, use the annual LTC benefit directly
-            ltcBenefits = Math.min(policyDataForYear.annual_ltc_benefit, ltcExpenses)
+            ltcBenefits = Math.min(policyDataForYear.annual_ltc_benefit, ltcExpenses);
+            console.log(`  HYBRID PATH - ltcBenefits after Math.min: ${ltcBenefits}`);
+            
+            // ADDITIONAL CHECK: If ltcBenefits exceeds ltcExpenses, force it to be capped
+            if (ltcBenefits > ltcExpenses) {
+              console.log(`  ERROR: ltcBenefits (${ltcBenefits}) exceeds ltcExpenses (${ltcExpenses}) - forcing cap`);
+              ltcBenefits = ltcExpenses;
+            }
 
             // Track cumulative benefits paid
             cumulativeLTCBenefits += ltcBenefits
@@ -263,17 +296,29 @@ export function calculateFinancialProjection(
           }
         } else {
           // Traditional policy - use existing logic
-          // Find the annual policy data for the current policy year, accounting for shift if enabled
-          const annualData = personPolicy.annual_policy_data.find((data) => data.policy_year === policyYear)
+          // FIXED: Look up by insured_age instead of policy_year to avoid mismatches
+          console.log(`  LOOKING FOR: insured_age = ${age}, policy_year = ${policyYear}`);
+          
+          // First try to find by insured_age (more reliable)
+          let annualData = personPolicy.annual_policy_data.find((data) => data.insured_age === age)
+          
+          // If not found by age, fall back to policy_year lookup
+          if (!annualData) {
+            annualData = personPolicy.annual_policy_data.find((data) => data.policy_year === policyYear)
+          }
 
-          // If we don't find an exact match for the policy year, find the closest one that's less than or equal
+          // If we still don't find an exact match, find the closest age that's less than or equal
           const closestData = !annualData
             ? personPolicy.annual_policy_data
-                .filter((data) => data.policy_year <= policyYear)
-                .sort((a, b) => b.policy_year - a.policy_year)[0]
+                .filter((data) => data.insured_age <= age)
+                .sort((a, b) => b.insured_age - a.insured_age)[0]
             : null
 
           const policyDataForYear = annualData || closestData
+          
+          if (policyDataForYear) {
+            console.log(`  FOUND DATA: policy_year=${policyDataForYear.policy_year}, insured_age=${policyDataForYear.insured_age}, monthly_benefit=${policyDataForYear.monthly_benefit_limit}`);
+          }
 
           if (policyDataForYear) {
             // Check if we're within the benefit period (typically based on rider terms)
@@ -285,9 +330,21 @@ export function calculateFinancialProjection(
             // For this simulation, we'll use the monthly benefit limit from the policy data
             const monthlyBenefit = policyDataForYear.monthly_benefit_limit
             const annualBenefit = monthlyBenefit * 12
+            
+            console.log(`  TRADITIONAL PATH - monthlyBenefit: ${monthlyBenefit}`);
+            console.log(`  TRADITIONAL PATH - annualBenefit: ${annualBenefit}`);
+            console.log(`  TRADITIONAL PATH - ltcExpenses: ${ltcExpenses}`);
+            console.log(`  TRADITIONAL PATH - Math.min(${annualBenefit}, ${ltcExpenses})`);
 
             // Apply the benefit up to the actual LTC expenses
-            ltcBenefits = Math.min(annualBenefit, ltcExpenses)
+            ltcBenefits = Math.min(annualBenefit, ltcExpenses);
+            console.log(`  TRADITIONAL PATH - ltcBenefits after Math.min: ${ltcBenefits}`);
+            
+            // ADDITIONAL CHECK: If ltcBenefits exceeds ltcExpenses, force it to be capped
+            if (ltcBenefits > ltcExpenses) {
+              console.log(`  ERROR: ltcBenefits (${ltcBenefits}) exceeds ltcExpenses (${ltcExpenses}) - forcing cap`);
+              ltcBenefits = ltcExpenses;
+            }
 
             // Track cumulative benefits paid
             cumulativeLTCBenefits += ltcBenefits
@@ -396,11 +453,21 @@ export function calculateFinancialProjection(
     let withdrawal = 0
     let taxOnWithdrawal = 0
 
+    // Handle initial premium withdrawal in first year if enabled
+    if (year === 0 && person.policyEnabled && person.initialPremiumFromAssets) {
+      withdrawal = initialPremiumWithdrawal
+      taxOnWithdrawal = initialPremiumWithdrawal * person.retirementAssetsTaxRate
+      
+      // Adjust net cash flow to reflect that the premium is paid from assets, not income
+      const premiumPaidFromAssets = initialPremiumWithdrawal * (1 - person.retirementAssetsTaxRate)
+      netCashFlow += premiumPaidFromAssets
+    }
+
     // Handle pre-retirement premium payments from assets if enabled
     let premiumWithdrawal = 0
     let taxOnPremiumWithdrawal = 0
 
-    if (!isRetired && person.policyEnabled && premiumExpenses > 0 && person.premiumsFromAssetsPreRetirement) {
+    if (!isRetired && person.policyEnabled && premiumExpenses > 0 && person.premiumsFromAssetsPreRetirement && year !== 0) {
       // Calculate the gross withdrawal needed to cover premium + tax
       premiumWithdrawal = premiumExpenses / (1 - person.retirementAssetsTaxRate)
       taxOnPremiumWithdrawal = premiumWithdrawal * person.retirementAssetsTaxRate

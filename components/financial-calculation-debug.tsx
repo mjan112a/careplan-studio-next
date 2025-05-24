@@ -14,8 +14,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts"
-import { useState, useRef, useEffect } from "react"
-import { MobileFriendlyTooltip } from "./mobile-friendly-tooltip"
+import { useState, useRef } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface FinancialCalculationDebugProps {
   data: YearlyFinancialData[]
@@ -38,11 +38,10 @@ export function FinancialCalculationDebug({
   assetReturns,
   annualSavings = 0,
 }: FinancialCalculationDebugProps) {
-  // State to track the tooltip data
-  const [tooltipData, setTooltipData] = useState<any>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
+  // State to track the modal data
+  const [modalData, setModalData] = useState<any>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const chartRef = useRef<HTMLDivElement>(null)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Format data for the chart
   const chartData = data.map((item) => ({
@@ -71,59 +70,22 @@ export function FinancialCalculationDebug({
     originalDeathBenefit: Math.round(item.originalDeathBenefit || 0),
   }))
 
-  // Function to start the auto-hide timer
-  const startAutoHideTimer = () => {
-    // Clear any existing timer
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-    }
-
-    // Set a new timer to hide the tooltip after 5 seconds
-    timerRef.current = setTimeout(() => {
-      setTooltipData(null)
-    }, 5000) // 5000 milliseconds = 5 seconds
-  }
-
-  // Effect to handle tooltip visibility and timer
-  useEffect(() => {
-    // When tooltip data changes (new tooltip shown), start the timer
-    if (tooltipData) {
-      startAutoHideTimer()
-    }
-
-    // Cleanup function to clear the timer when component unmounts
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
+  // Handle chart bar click to open modal
+  const handleBarClick = (data: any) => {
+    if (data && data.activeLabel !== undefined) {
+      const ageData = chartData.find((d) => d.age === data.activeLabel)
+      if (ageData) {
+        setModalData({ ageData, label: data.activeLabel })
+        setIsModalOpen(true)
       }
     }
-  }, [tooltipData])
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      // Get the data for this age
-      const ageData = chartData.find((d) => d.age === label)
-
-      if (!ageData) return null
-
-      // Update the tooltip data state and reset the timer
-      setTimeout(() => {
-        setTooltipData({ ageData, label })
-        startAutoHideTimer() // Reset the timer when hovering over a new data point
-      }, 0)
-
-      // Return null as we'll render the tooltip separately
-      return null
-    }
-
-    return null
   }
 
-  // Render the detailed tooltip content
-  const renderTooltipContent = () => {
-    if (!tooltipData) return null
+  // Render the detailed modal content
+  const renderModalContent = () => {
+    if (!modalData) return null
 
-    const { ageData, label } = tooltipData
+    const { ageData, label } = modalData
 
     // Calculate the asset growth rate used for this year
     const assetGrowthRate = ageData.isRetired ? assetReturns : preRetirementAssetReturns
@@ -131,30 +93,34 @@ export function FinancialCalculationDebug({
     // Find the previous year's data for comparison
     const prevAgeData = chartData.find((d) => d.age === label - 1)
 
-    // Calculate asset changes
+    // Calculate asset changes - simplified approach matching new calculator
     const startingAssets = prevAgeData ? prevAgeData.assets : ageData.assets
 
-    // Determine if we're in pre-retirement and not in an LTC event
+    // Calculate components of asset change
     const isPreRetirementNoLTC = !ageData.isRetired && !ageData.hasLTCEvent
-
-    // Calculate annual savings (only applied in pre-retirement and no LTC event)
     const appliedAnnualSavings = isPreRetirementNoLTC ? annualSavings : 0
-
-    // Calculate asset growth
-    const assetGrowthAmount = Math.round(
-      (startingAssets + appliedAnnualSavings - Math.abs(ageData.withdrawal)) * assetGrowthRate,
-    )
-
-    // Calculate the expected ending assets based on the formula
-    const expectedEndingAssets = Math.round(
-      (startingAssets + appliedAnnualSavings - Math.abs(ageData.withdrawal)) * (1 + assetGrowthRate),
-    )
-
-    // Get the actual ending assets from the data
+    
+    // Asset growth from investment returns
+    const assetGrowthAmount = startingAssets * assetGrowthRate
+    
+    // Net cash flow impact on assets
+    const netCashFlow = ageData.netCashFlow || 0
+    const withdrawalAmount = Math.abs(ageData.withdrawal || 0)
+    
+    // Calculate expected asset change step by step
+    let expectedAssets = startingAssets
+    expectedAssets *= (1 + assetGrowthRate) // Apply growth first
+    if (!ageData.isRetired) expectedAssets += appliedAnnualSavings // Add savings if working
+    expectedAssets -= withdrawalAmount // Subtract any withdrawals
+    
     const actualEndingAssets = ageData.assets
-
-    // Check if there's a discrepancy
-    const hasDiscrepancy = expectedEndingAssets !== actualEndingAssets
+    const assetDiscrepancy = actualEndingAssets - Math.round(expectedAssets)
+    const hasDiscrepancy = Math.abs(assetDiscrepancy) > 10 // Allow for small rounding differences
+    
+    // Fund flow analysis for better understanding
+    const totalIncome = ageData.workIncome + ageData.socialSecurityIncome + ageData.otherRetirementIncome + ageData.ltcBenefits
+    const totalExpenses = Math.abs(ageData.basicExpenses || 0) + Math.abs(ageData.ltcExpenses || 0) + Math.abs(ageData.premiumExpenses || 0)
+    const cashShortfall = Math.max(0, totalExpenses - totalIncome)
 
     // Calculate policy value changes
     const startingPolicyValue = prevAgeData ? prevAgeData.policyValue : ageData.policyValue
@@ -162,26 +128,17 @@ export function FinancialCalculationDebug({
     const policyValueChange = endingPolicyValue - startingPolicyValue
 
     return (
-      <div
-        ref={tooltipRef}
-        className="fixed left-4 top-20 z-50 bg-white p-2 border rounded shadow-lg text-xs max-w-md"
-        style={{ width: "400px" }}
-        onMouseEnter={() => startAutoHideTimer()} // Reset timer when mouse enters tooltip
-      >
-        <div className="flex justify-between items-center mb-1">
-          <h3 className="font-bold text-sm">Age {label} - Financial Details</h3>
-          <div className="text-xs text-gray-500">(Auto-hides in 5 seconds)</div>
-        </div>
+      <div className="space-y-4 max-h-[80vh] overflow-y-auto">
 
-        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mb-1">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-4">
           <div className="font-semibold">Retirement Status:</div>
           <div>{ageData.isRetired ? "Retired" : "Working"}</div>
           <div className="font-semibold">LTC Event:</div>
           <div>{ageData.hasLTCEvent ? "Yes" : "No"}</div>
         </div>
 
-        <h4 className="font-semibold text-xs border-b pb-0.5 mb-1">Income & Expenses</h4>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mb-1">
+        <h4 className="font-semibold text-sm border-b pb-1 mb-2">Income & Expenses</h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-4">
           <div>Work Income:</div>
           <div>{formatCurrency(ageData.workIncome)}</div>
           <div>Social Security:</div>
@@ -202,8 +159,8 @@ export function FinancialCalculationDebug({
           </div>
         </div>
 
-        <h4 className="font-semibold text-xs border-b pb-0.5 mb-1">Asset Balance Sheet (Detailed)</h4>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mb-1">
+        <h4 className="font-semibold text-sm border-b pb-1 mb-2">Asset Balance Sheet (Detailed)</h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-4">
           {/* Starting values */}
           <div className="col-span-2 bg-gray-100 mt-1 mb-0.5 px-1 font-semibold">Starting Values:</div>
           <div className="pl-2">Starting Assets (without Policy):</div>
@@ -254,10 +211,10 @@ export function FinancialCalculationDebug({
           {/* Result */}
           <div className="col-span-2 border-t border-gray-300 mt-1"></div>
 
-          <div className="font-semibold">Expected Ending Assets (without Policy):</div>
-          <div>{formatCurrency(expectedEndingAssets)}</div>
+          <div className="font-semibold">Expected Ending Assets:</div>
+          <div>{formatCurrency(Math.round(expectedAssets))}</div>
 
-          <div className="font-semibold">Actual Ending Assets (without Policy):</div>
+          <div className="font-semibold">Actual Ending Assets:</div>
           <div className={hasDiscrepancy ? "text-red-600 font-semibold" : ""}>{formatCurrency(actualEndingAssets)}</div>
 
           <div className="font-semibold">Ending Policy Value:</div>
@@ -268,16 +225,91 @@ export function FinancialCalculationDebug({
 
           {hasDiscrepancy && (
             <>
-              <div className="font-semibold text-red-600">Discrepancy in Assets:</div>
+              <div className="font-semibold text-red-600">Asset Calculation Difference:</div>
               <div className="text-red-600 font-semibold">
-                {formatCurrency(actualEndingAssets - expectedEndingAssets)}
+                {formatCurrency(assetDiscrepancy)}
               </div>
             </>
           )}
         </div>
 
-        <h4 className="font-semibold text-xs border-b pb-0.5 mb-1">Detailed Calculation Formulas</h4>
-        <div className="text-[10px] mt-0.5 font-mono bg-gray-100 p-1 rounded">
+        {/* Enhanced Fund Flow Analysis */}
+        <h4 className="font-semibold text-sm border-b pb-1 mb-2">Fund Flow Analysis</h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-4">
+          <div className="col-span-2 bg-blue-50 mt-1 mb-0.5 px-1 font-semibold text-blue-800">Income Sources:</div>
+          {ageData.workIncome > 0 && (
+            <>
+              <div className="pl-2">Work Income:</div>
+              <div className="text-green-600">{formatCurrency(ageData.workIncome)}</div>
+            </>
+          )}
+          {ageData.socialSecurityIncome > 0 && (
+            <>
+              <div className="pl-2">Social Security:</div>
+              <div className="text-green-600">{formatCurrency(ageData.socialSecurityIncome)}</div>
+            </>
+          )}
+          {ageData.otherRetirementIncome > 0 && (
+            <>
+              <div className="pl-2">Other Retirement:</div>
+              <div className="text-green-600">{formatCurrency(ageData.otherRetirementIncome)}</div>
+            </>
+          )}
+          {ageData.ltcBenefits > 0 && (
+            <>
+              <div className="pl-2">LTC Benefits:</div>
+              <div className="text-green-600">{formatCurrency(ageData.ltcBenefits)}</div>
+            </>
+          )}
+          {appliedAnnualSavings > 0 && (
+            <>
+              <div className="pl-2">Annual Savings:</div>
+              <div className="text-green-600">{formatCurrency(appliedAnnualSavings)}</div>
+            </>
+          )}
+          
+          <div className="pl-2 font-semibold">Total Income + Savings:</div>
+          <div className="text-green-600 font-semibold">{formatCurrency(totalIncome + appliedAnnualSavings)}</div>
+
+          <div className="col-span-2 bg-red-50 mt-1 mb-0.5 px-1 font-semibold text-red-800">Expense Sources:</div>
+          {Math.abs(ageData.basicExpenses || 0) > 0 && (
+            <>
+              <div className="pl-2">Basic Living:</div>
+              <div className="text-red-600">{formatCurrency(Math.abs(ageData.basicExpenses || 0))}</div>
+            </>
+          )}
+          {Math.abs(ageData.ltcExpenses || 0) > 0 && (
+            <>
+              <div className="pl-2">LTC Costs:</div>
+              <div className="text-red-600">{formatCurrency(Math.abs(ageData.ltcExpenses || 0))}</div>
+            </>
+          )}
+          {Math.abs(ageData.premiumExpenses || 0) > 0 && (
+            <>
+              <div className="pl-2">Premium Payments:</div>
+              <div className="text-red-600">{formatCurrency(Math.abs(ageData.premiumExpenses || 0))}</div>
+            </>
+          )}
+          
+          <div className="pl-2 font-semibold">Total Expenses:</div>
+          <div className="text-red-600 font-semibold">{formatCurrency(totalExpenses)}</div>
+
+          <div className="col-span-2 bg-yellow-50 mt-1 mb-0.5 px-1 font-semibold text-yellow-800">Net Impact:</div>
+          <div className="pl-2 font-semibold">Cash Shortfall:</div>
+          <div className={cashShortfall > 0 ? "text-red-600 font-semibold" : "text-green-600"}>{formatCurrency(cashShortfall)}</div>
+          
+          {withdrawalAmount > 0 && (
+            <>
+              <div className="pl-2">Asset Withdrawal (Gross):</div>
+              <div className="text-red-600">{formatCurrency(withdrawalAmount)}</div>
+              <div className="pl-2">Tax on Withdrawal:</div>
+              <div className="text-red-600">{formatCurrency(Math.abs(ageData.taxOnWithdrawal || 0))}</div>
+            </>
+          )}
+        </div>
+
+        <h4 className="font-semibold text-sm border-b pb-1 mb-2">Detailed Calculation Formulas</h4>
+        <div className="text-xs mt-2 font-mono bg-gray-100 p-3 rounded">
           {/* Assets without policy calculation */}
           <div className="font-semibold">// Assets without Policy Calculation:</div>
           {!ageData.isRetired ? (
@@ -292,7 +324,7 @@ export function FinancialCalculationDebug({
                 = ({formatCurrency(startingAssets)} + {formatCurrency(appliedAnnualSavings)} -{" "}
                 {formatCurrency(Math.abs(ageData.withdrawal))}) * (1 + {formatPercentage(assetGrowthRate)})
               </div>
-              <div>= {formatCurrency(expectedEndingAssets)}</div>
+              <div>= {formatCurrency(expectedAssets)}</div>
               {hasDiscrepancy && (
                 <div className="text-red-600">
                   // Warning: Actual ending assets ({formatCurrency(actualEndingAssets)}) don't match expected
@@ -311,7 +343,7 @@ export function FinancialCalculationDebug({
                 = ({formatCurrency(startingAssets)} - {formatCurrency(Math.abs(ageData.withdrawal))}) * (1 +{" "}
                 {formatPercentage(assetGrowthRate)})
               </div>
-              <div>= {formatCurrency(expectedEndingAssets)}</div>
+              <div>= {formatCurrency(expectedAssets)}</div>
               {hasDiscrepancy && (
                 <div className="text-red-600">
                   // Warning: Actual ending assets ({formatCurrency(actualEndingAssets)}) don't match expected
@@ -371,8 +403,8 @@ export function FinancialCalculationDebug({
         </div>
 
         {/* Add a new section to show asset progression over time */}
-        <h4 className="font-semibold text-xs border-b pb-0.5 mb-1 mt-2">Asset Progression</h4>
-        <div className="text-[10px] mt-0.5 bg-gray-100 p-1 rounded">
+        <h4 className="font-semibold text-sm border-b pb-1 mb-2 mt-4">Asset Progression</h4>
+        <div className="text-xs mt-2 bg-gray-100 p-3 rounded">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b">
@@ -419,9 +451,9 @@ export function FinancialCalculationDebug({
           </table>
         </div>
 
-        {/* Add a simplified asset calculation summary for mobile */}
-        <h4 className="font-semibold text-xs border-b pb-0.5 mb-1 mt-2">Asset Calculations</h4>
-        <div className="text-[10px] mt-0.5 bg-gray-100 p-1 rounded">
+        {/* Add a simplified asset calculation summary */}
+        <h4 className="font-semibold text-sm border-b pb-1 mb-2 mt-4">Asset Calculations</h4>
+        <div className="text-xs mt-2 bg-gray-100 p-3 rounded">
           <div className="font-semibold">Assets Without Policy:</div>
           <div className="grid grid-cols-2 pl-2">
             <div>Previous Year:</div>
@@ -469,14 +501,17 @@ export function FinancialCalculationDebug({
     <Card className="w-full">
       <CardHeader className="py-2">
         <CardTitle className="text-base">{title}</CardTitle>
+        <p className="text-sm text-gray-600 mt-1">
+          💡 Click on any chart bar to view detailed financial breakdown for that age
+        </p>
       </CardHeader>
       <CardContent className="h-[400px] pt-0" ref={chartRef}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} barSize={8}>
+          <BarChart data={chartData} barSize={8} onClick={handleBarClick}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="age" />
             <YAxis tickFormatter={(value) => `${value < 0 ? "-" : ""}${(Math.abs(value) / 1000).toFixed(0)}k`} />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={() => null} />
             <Legend />
             {/* Define patterns */}
             <defs>
@@ -524,15 +559,18 @@ export function FinancialCalculationDebug({
             {ltcEventAge && <ReferenceLine x={ltcEventAge} stroke="#ef4444" label="LTC Event" />}
           </BarChart>
         </ResponsiveContainer>
-        {tooltipData && (
-          <MobileFriendlyTooltip
-            title={`Age ${tooltipData.label} - Financial Details`}
-            isOpen={!!tooltipData}
-            onClose={() => setTooltipData(null)}
-          >
-            {renderTooltipContent()}
-          </MobileFriendlyTooltip>
-        )}
+        
+        {/* Modal Dialog for detailed financial information */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {modalData && `Age ${modalData.label} - Financial Details`}
+              </DialogTitle>
+            </DialogHeader>
+            {renderModalContent()}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   )

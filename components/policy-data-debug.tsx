@@ -8,26 +8,17 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { PolicyData } from "@/types/simulator-interfaces"
 
 interface PolicyDataDebugProps {
-  shiftPolicyYear?: boolean
   policyData?: PolicyData[] | null
 }
 
-export function PolicyDataDebug({ shiftPolicyYear = false, policyData }: PolicyDataDebugProps) {
+export function PolicyDataDebug({ policyData }: PolicyDataDebugProps) {
   const [showData, setShowData] = useState(false)
   
   // Use provided policy data or fallback to sample data
   const displayPolicyData = policyData || getSamplePolicyData()
 
-  // Adjust policy years if shift is enabled
-  const adjustedPolicyData = shiftPolicyYear
-    ? displayPolicyData.map((policy) => ({
-        ...policy,
-        annual_policy_data: policy.annual_policy_data.map((data) => ({
-          ...data,
-          policy_year: data.policy_year - 1, // Shift year down by 1
-        })),
-      }))
-    : displayPolicyData
+  // Use display policy data directly (no shifting needed with simplified calculation)
+  const adjustedPolicyData = displayPolicyData
 
   return (
     <Card className="w-full">

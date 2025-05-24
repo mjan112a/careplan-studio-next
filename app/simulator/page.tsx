@@ -15,7 +15,8 @@ import { PolicyBenefitsChart } from "@/components/policy-benefits-chart"
 import { AIAnalysis } from "@/components/ai-analysis"
 import { Documentation } from "@/components/documentation"
 import { type Person, defaultPerson } from "@/types/person"
-import { calculateFinancialProjection, calculateHouseholdProjection } from "@/utils/financial-calculations"
+import { calculateSimpleFinancialProjection, convertToYearlyFinancialData } from "@/utils/simple-financial-calculator"
+import { calculateHouseholdProjection } from "@/utils/financial-calculations"
 import { formatCurrency } from "@/utils/format"
 import { getSamplePolicyData } from "@/types/policy-data"
 import { PolicyDataDebug } from "@/components/policy-data-debug"
@@ -39,7 +40,6 @@ import { usePolicyData } from '@/lib/policy-data'
 
 export default function Home() {
   const [useActualPolicy, setUseActualPolicy] = useState(true)
-  const [shiftPolicyDataYear, setShiftPolicyDataYear] = useState(false)
   const [mergeSampleData, setMergeSampleData] = useState(true)
   
   // Use our new hook to get policy data
@@ -208,28 +208,23 @@ export default function Home() {
     }
   }, [person2.policyEnabled, policyData])
 
-  // Calculate projections
-  const person1Projection = calculateFinancialProjection(person1, 0, useActualPolicy, shiftPolicyDataYear, activePolicyData)
-  const person2Projection = calculateFinancialProjection(person2, 1, useActualPolicy, shiftPolicyDataYear, activePolicyData)
+  // Calculate projections using simple calculator
+  const person1SimpleData = calculateSimpleFinancialProjection(person1, 0, activePolicyData)
+  const person2SimpleData = calculateSimpleFinancialProjection(person2, 1, activePolicyData)
+  
+  // Convert to chart-compatible format
+  const person1Projection = convertToYearlyFinancialData(person1SimpleData)
+  const person2Projection = convertToYearlyFinancialData(person2SimpleData)
   const householdProjection = calculateHouseholdProjection(person1Projection, person2Projection)
 
   // Calculate projections with policy turned off for comparison
   const person1WithPolicyOff = { ...person1, policyEnabled: false }
+  const person1SimpleDataOff = calculateSimpleFinancialProjection(person1WithPolicyOff, 0, activePolicyData)
+  const person1ProjectionWithPolicyOff = convertToYearlyFinancialData(person1SimpleDataOff)
+  
   const person2WithPolicyOff = { ...person2, policyEnabled: false }
-  const person1ProjectionWithPolicyOff = calculateFinancialProjection(
-    person1WithPolicyOff,
-    0,
-    false,
-    shiftPolicyDataYear,
-    activePolicyData
-  )
-  const person2ProjectionWithPolicyOff = calculateFinancialProjection(
-    person2WithPolicyOff,
-    1,
-    false,
-    shiftPolicyDataYear,
-    activePolicyData
-  )
+  const person2SimpleDataOff = calculateSimpleFinancialProjection(person2WithPolicyOff, 1, activePolicyData)
+  const person2ProjectionWithPolicyOff = convertToYearlyFinancialData(person2SimpleDataOff)
   const householdProjectionWithPolicyOff = calculateHouseholdProjection(
     person1ProjectionWithPolicyOff,
     person2ProjectionWithPolicyOff,
@@ -237,21 +232,12 @@ export default function Home() {
 
   // Calculate projections without LTC insurance
   const person1WithoutInsurance = { ...person1, policyEnabled: false }
+  const person1SimpleDataNoIns = calculateSimpleFinancialProjection(person1WithoutInsurance, 0, null)
+  const person1ProjectionWithoutInsurance = convertToYearlyFinancialData(person1SimpleDataNoIns)
+  
   const person2WithoutInsurance = { ...person2, policyEnabled: false }
-  const person1ProjectionWithoutInsurance = calculateFinancialProjection(
-    person1WithoutInsurance,
-    0,
-    false,
-    shiftPolicyDataYear,
-    activePolicyData
-  )
-  const person2ProjectionWithoutInsurance = calculateFinancialProjection(
-    person2WithoutInsurance,
-    1,
-    false,
-    shiftPolicyDataYear,
-    activePolicyData
-  )
+  const person2SimpleDataNoIns = calculateSimpleFinancialProjection(person2WithoutInsurance, 1, null)
+  const person2ProjectionWithoutInsurance = convertToYearlyFinancialData(person2SimpleDataNoIns)
   const householdProjectionWithoutInsurance = calculateHouseholdProjection(
     person1ProjectionWithoutInsurance,
     person2ProjectionWithoutInsurance,
@@ -387,7 +373,7 @@ export default function Home() {
                   } as any} 
                   onChange={(p: any) => setPerson1(p)} 
                 />
-                <PolicyDetails personIndex={0} shiftPolicyYear={shiftPolicyDataYear} policyData={activePolicyData} />
+                <PolicyDetails personIndex={0} policyData={activePolicyData} />
               </div>
             </div>
             <div className="lg:col-span-2">
@@ -499,7 +485,7 @@ export default function Home() {
                   } as any} 
                   onChange={(p: any) => setPerson2(p)} 
                 />
-                <PolicyDetails personIndex={1} shiftPolicyYear={shiftPolicyDataYear} policyData={activePolicyData} />
+                <PolicyDetails personIndex={1} policyData={activePolicyData} />
               </div>
             </div>
             <div className="lg:col-span-2">
@@ -680,7 +666,7 @@ export default function Home() {
               )}
             </ul>
           </div>
-          <PolicyDataDebug shiftPolicyYear={shiftPolicyDataYear} policyData={activePolicyData} />
+          <PolicyDataDebug policyData={activePolicyData} />
 
           <div className="grid grid-cols-1 gap-6 mt-6">
             <TaxImpactVisualization

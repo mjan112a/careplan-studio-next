@@ -215,7 +215,9 @@ export function Documentation() {
                       <li>
                         <strong>Premium Payments:</strong> Premiums can be paid from current income, retirement assets,
                         or policy loans (after retirement if assets are depleted). The simulator also supports paying
-                        initial premiums from assets and pre-retirement premiums from assets.
+                        initial premiums from assets and pre-retirement premiums from assets. When initial premiums are
+                        paid from assets, this withdrawal (including taxes) is tracked and displayed in the Income &
+                        Expenses chart as a premium expense in the first year.
                       </li>
                     </ul>
                   </AccordionContent>

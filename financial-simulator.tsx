@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import type { Person, CombinedYearlyData } from "./types/financial-types"
+import type { FinancialPerson as Person, CombinedYearlyData } from "./types/financial-types"
 import { calculateRetirementScenario } from "./utils/calculation-utils"
 import { combineRetirementData } from "./utils/combine-utils"
 import {
@@ -221,6 +221,15 @@ function FinancialSimulator({ router }: { router: any }) {
     localStorage.setItem("debug_person1", JSON.stringify(person1Results))
     localStorage.setItem("debug_person2", JSON.stringify(person2Results))
     localStorage.setItem("debug_combinedData", JSON.stringify(combinedData))
+  }
+
+  // Add timing debug function (client-side only)
+  const debugTimingReconciliation = () => {
+    if (typeof window === 'undefined') return; // Skip during SSR
+    
+    console.log("=== TIMING RECONCILIATION DEBUG ===");
+    console.log("Person 1 Results:", person1Results);
+    console.log("Enable policy first, then run this debug function");
   }
 
   // Add this function to the component
@@ -749,6 +758,10 @@ function FinancialSimulator({ router }: { router: any }) {
                   Debug View
                 </Button>
               </Link>
+              <Button variant="outline" size="sm" onClick={debugTimingReconciliation}>
+                <Bug className="h-4 w-4 mr-2" />
+                Timing Debug
+              </Button>
               <ReportButton person1={person1Results} person2={person2Results} combinedData={combinedData} />
               <Button
                 variant="outline"

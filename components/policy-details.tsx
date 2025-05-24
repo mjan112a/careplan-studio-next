@@ -8,11 +8,10 @@ import { PolicyData } from "@/types/simulator-interfaces"
 
 interface PolicyDetailsProps {
   personIndex?: number
-  shiftPolicyYear?: boolean
   policyData?: PolicyData[] | null
 }
 
-export function PolicyDetails({ personIndex = 0, shiftPolicyYear = false, policyData }: PolicyDetailsProps) {
+export function PolicyDetails({ personIndex = 0, policyData }: PolicyDetailsProps) {
   const policyDataForPerson = getPolicyDataForPerson(personIndex, policyData)
 
   if (!policyDataForPerson) {
@@ -29,14 +28,6 @@ export function PolicyDetails({ personIndex = 0, shiftPolicyYear = false, policy
   }
 
   const { policy_level_information, annual_policy_data } = policyDataForPerson
-
-  // Adjust policy years if shift is enabled
-  const adjustedAnnualData = shiftPolicyYear
-    ? annual_policy_data.map((data) => ({
-        ...data,
-        policy_year: data.policy_year - 1, // Shift year down by 1
-      }))
-    : annual_policy_data
 
   return (
     <Card>
@@ -133,7 +124,7 @@ export function PolicyDetails({ personIndex = 0, shiftPolicyYear = false, policy
                   </tr>
                 </thead>
                 <tbody>
-                  {adjustedAnnualData.map((data, index) => (
+                  {annual_policy_data.map((data, index) => (
                     <tr key={index} className="border-b last:border-b-0 hover:bg-muted/50">
                       <td className="p-2">{data.policy_year}</td>
                       <td className="p-2">{data.insured_age}</td>

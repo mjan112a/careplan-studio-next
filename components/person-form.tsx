@@ -207,7 +207,7 @@ export function PersonForm({ person, onChange, title = "Person", personIndex = 0
                 </Label>
                 <Slider
                   id="incomeReplacementRatio"
-                  min={0.3}
+                  min={0}
                   max={1}
                   step={0.05}
                   value={[person.incomeReplacementRatio]}

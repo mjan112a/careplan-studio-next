@@ -110,10 +110,12 @@ const findPolicyDataForYear = (policyData: PolicyData[], policyYear: number): Po
   // Calculate how far between the two years we are (0 to 1)
   const ratio = (policyYear - lowerYear) / (upperYear - lowerYear)
 
-  // Interpolate between the two policy data points
+  // FIXED: Don't interpolate premiums - use exact values only
+  // Premiums are discrete payments, not smooth curves
+  // For non-exact years, use the premium from the lower year (previous year's premium structure)
   return {
     year: policyYear,
-    premium: interpolate(sortedData[lowerIndex].premium, sortedData[upperIndex].premium, ratio),
+    premium: sortedData[lowerIndex].premium, // Use exact premium, no interpolation
     cashValue: interpolate(sortedData[lowerIndex].cashValue, sortedData[upperIndex].cashValue, ratio),
     deathBenefit: interpolate(sortedData[lowerIndex].deathBenefit, sortedData[upperIndex].deathBenefit, ratio),
     totalLTCBenefit: interpolate(sortedData[lowerIndex].totalLTCBenefit, sortedData[upperIndex].totalLTCBenefit, ratio),
@@ -195,8 +197,8 @@ export const calculateRetirementScenario = (person: Person): Person => {
     const monthlyLtcCost = hasLtcEvent ? person.ltcMonthlyNeed * ltcInflationFactor : 0
     const annualLtcCost = monthlyLtcCost * 12
 
-    // Find policy data for current age
-    const policyYear = yearsSinceStart + 1 // Policy year starts at 1
+    // Simple policy year calculation: Policy Year 1 = person's current age
+    const policyYear = age - person.currentAge + 1
     const policyDataForYear = person.policyData ? findPolicyDataForYear(person.policyData, policyYear) : null
 
     // Policy benefits for LTC - ONLY if policy is enabled
@@ -224,15 +226,16 @@ export const calculateRetirementScenario = (person: Person): Person => {
     // We include LTC costs in income needed and policy income (LTC benefits) in income sources
     const incomeGap = Math.max(0, incomeNeeded - socialSecurity - pension - policyIncome)
 
-    // Policy premium - ONLY if policy is enabled
+    // TIMING RECONCILIATION: Policy premium calculation
+    // Premium for Policy Year N is paid at the BEGINNING of that policy year
     let policyPremium = 0
-    if (person.policyEnabled) {
-      if (person.isPremiumSingle && age === person.currentAge) {
-        // Single premium in first year
-        policyPremium = person.policyData[0].premium
-      } else if (!person.isPremiumSingle && age < person.currentAge + person.premiumYears) {
-        // Annual premium for specified years
-        policyPremium = person.annualPremiumAmount
+    if (person.policyEnabled && policyDataForYear) {
+      policyPremium = policyDataForYear.premium
+      
+      // Debug logging to understand the timing issue
+      if (age <= person.currentAge + 10) {
+        console.log(`DEBUG PREMIUM: Age ${age}, PolicyYear ${policyYear}, Premium $${policyPremium}, YearsSinceStart ${yearsSinceStart}`)
+        console.log(`  policyDataForYear:`, JSON.stringify(policyDataForYear, null, 2))
       }
     }
 
